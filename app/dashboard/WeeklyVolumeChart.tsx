@@ -84,7 +84,7 @@ function ChartFrame({
               color: "#0A0908",
             }}
             labelStyle={{ color: "#4A4642" }}
-            formatter={(value: number) => [
+            formatter={(value) => [
               tooltipUnit ? `${value} ${tooltipUnit}` : `${value}`,
               tooltipLabel,
             ]}
