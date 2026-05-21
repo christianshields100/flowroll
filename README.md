@@ -1,36 +1,106 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FlowRoll
 
-## Getting Started
+A BJJ training log. Log what you rolled, watch your mat time and submissions
+trend, follow training partners and see what they're doing.
 
-First, run the development server:
+Built for one user first, but multi-user from day one.
+
+## Stack
+
+- **Next.js 14** (App Router) + TypeScript
+- **Supabase** — Postgres + magic-link & Google auth + Row-Level Security
+- **`@supabase/ssr`** for browser / server / middleware clients
+- **Recharts** for the dashboard charts
+- **Tailwind** with a custom belt-color theme
+- Deployed on **Vercel**
+
+## Local setup
 
 ```bash
+npm install
+cp .env.local.example .env.local   # then fill in your Supabase URL + anon key
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open <http://localhost:3000>.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Required env vars
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<your publishable / anon key>
+NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used by magic-link redirects
+```
 
-## Learn More
+### Supabase setup
 
-To learn more about Next.js, take a look at the following resources:
+1. Create a new Supabase project.
+2. Open the SQL editor and run [`supabase_schema.sql`](./supabase_schema.sql) —
+   it's idempotent, you can re-run it.
+3. **Authentication → Providers** → enable **Email** (magic link) and **Google**.
+4. **Authentication → URL Configuration** → add your dev URL (and later your
+   Vercel URL) to "Site URL" and "Redirect URLs".
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## What's in v1
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Magic-link + Google auth** — auto-creates a profile on first sign-in.
+- **`/log`** — log a session: date, duration, rounds, gym, what you drilled,
+  submissions hit / caught in, a 1-5 "how it felt", a free-text note.
+- **`/dashboard`** — streak, lifetime totals, weekly mat-time chart, weekly
+  rounds chart, submission ledger (hit vs caught-in toggle), searchable notes.
+- **`/feed`** — find training partners by name, follow / unfollow, see their
+  recent sessions. Read-only.
 
-## Deploy on Vercel
+## Not in v1 (intentionally)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+These are out of scope so we can ship. Tracked for later:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Comments / reactions on feed sessions
+- Leaderboards (mat hours, sub counts, etc.)
+- Whoop / Garmin / Apple Health integration
+- Photo & video attachments
+- Per-session editing & deletion UI (DB supports it via RLS, no UI yet)
+- Notifications (email digest, push)
+- Profile page with full session history for someone you follow
+
+## Architecture notes
+
+- **Auth lives in middleware.** Every request to `/dashboard`, `/log`, `/feed`
+  refreshes the session and gates unauthenticated users back to `/login`.
+- **RLS is the access boundary.** The app never gates "can I read this row?"
+  in code — Postgres does. Sessions are readable by the owner or anyone who
+  follows them. Profiles are readable by all authenticated users. Inserts and
+  deletes are owner-only.
+- **A trigger on `auth.users`** creates a `public.profiles` row on signup,
+  pulling `display_name` from OAuth metadata or the email local-part.
+- **Server actions** handle all writes (`logSession`, `follow`, `unfollow`)
+  so we get the cookie-bound Supabase client and automatic revalidation.
+- **Stats are computed in `lib/stats.ts`** as pure functions, so they're
+  trivially testable and the dashboard page stays a thin server component.
+
+## Project layout
+
+```
+app/
+  auth/callback/         OAuth & magic-link return handler
+  auth/signout/          POST /auth/signout → clears session
+  dashboard/             Charts, ledger, notes search
+  feed/                  Follows + timeline
+  log/                   Session form + server action
+  login/                 Magic-link & Google sign-in
+  error.tsx              Global error boundary
+  not-found.tsx          404
+  loading.tsx            Route-transition skeleton
+components/AppShell.tsx  Header + nav for signed-in routes
+lib/supabase/            Browser / server client factories
+lib/stats.ts             Pure stat helpers (streak, weekly buckets, totals)
+middleware.ts            Auth refresh + route gating
+supabase_schema.sql      Tables, RLS, trigger
+```
+
+## Deployment
+
+Push to GitHub, import in Vercel, set the three env vars above (with
+`NEXT_PUBLIC_SITE_URL` pointing at the Vercel URL), and add that URL to
+Supabase's allowed redirect list and to the Google OAuth client's authorized
+redirect URIs.

@@ -3,25 +3,67 @@
 @tailwind utilities;
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --paper: #ffffff;
+  --paper-raised: #fafaf7;
+  --paper-line: #e5e3dd;
+  --ink: #0a0908;
+  --ink-dim: #4a4642;
+  --accent: #b2342a;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), ui-sans-serif, system-ui, sans-serif;
+  font-feature-settings: "ss01", "ss02";
+}
+
+/* Subtle weave texture on white paper — barely visible. */
+.bg-paper-weave {
+  background-color: var(--paper);
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      rgba(10, 9, 8, 0.022) 0px,
+      rgba(10, 9, 8, 0.022) 1px,
+      transparent 1px,
+      transparent 6px
+    ),
+    repeating-linear-gradient(
+      90deg,
+      rgba(10, 9, 8, 0.022) 0px,
+      rgba(10, 9, 8, 0.022) 1px,
+      transparent 1px,
+      transparent 6px
+    );
+}
+
+/* Belt stripe — thin horizontal accent used as a section underline. */
+.belt-rule {
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--accent) 12%,
+    var(--accent) 88%,
+    transparent 100%
+  );
+  opacity: 0.9;
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+  .num {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
   }
 }
