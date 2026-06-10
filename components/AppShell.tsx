@@ -22,7 +22,7 @@ export function AppShell({
 }: {
   children: React.ReactNode;
   profile: Profile | null;
-  active: "dashboard" | "log" | "feed";
+  active: "dashboard" | "log" | "feed" | "chat";
 }) {
   return (
     <div className="min-h-screen flex flex-col">
@@ -47,6 +47,9 @@ export function AppShell({
             </NavLink>
             <NavLink href="/feed" active={active === "feed"}>
               Feed
+            </NavLink>
+            <NavLink href="/chat" active={active === "chat"}>
+              Coach
             </NavLink>
           </nav>
 

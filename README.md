@@ -30,6 +30,7 @@ Then open <http://localhost:3000>.
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your publishable / anon key>
 NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used by magic-link redirects
+ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach chatbot
 ```
 
 ### Supabase setup
@@ -50,6 +51,9 @@ NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used by magic-link redirects
   rounds chart, submission ledger (hit vs caught-in toggle), searchable notes.
 - **`/feed`** — find training partners by name, follow / unfollow, see their
   recent sessions. Read-only.
+- **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
+  your notes and full log history. Scope-locked to BJJ and your own data —
+  it declines anything off-topic.
 
 ## Not in v1 (intentionally)
 
@@ -65,8 +69,8 @@ These are out of scope so we can ship. Tracked for later:
 
 ## Architecture notes
 
-- **Auth lives in middleware.** Every request to `/dashboard`, `/log`, `/feed`
-  refreshes the session and gates unauthenticated users back to `/login`.
+- **Auth lives in middleware.** Every request to `/dashboard`, `/log`, `/feed`,
+  `/chat` refreshes the session and gates unauthenticated users back to `/login`.
 - **RLS is the access boundary.** The app never gates "can I read this row?"
   in code — Postgres does. Sessions are readable by the owner or anyone who
   follows them. Profiles are readable by all authenticated users. Inserts and
@@ -84,6 +88,8 @@ These are out of scope so we can ship. Tracked for later:
 app/
   auth/callback/         OAuth & magic-link return handler
   auth/signout/          POST /auth/signout → clears session
+  api/chat/              Coach chatbot API (auth + log context + Claude stream)
+  chat/                  Coach chat UI
   dashboard/             Charts, ledger, notes search
   feed/                  Follows + timeline
   log/                   Session form + server action
