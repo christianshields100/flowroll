@@ -46,6 +46,12 @@ create table if not exists public.sessions (
 create index if not exists sessions_user_trained_on_idx
   on public.sessions (user_id, trained_on desc);
 
+-- v2: training partners — free-text names, autocompleted in the UI from
+-- followed users + your own past entries. Text (not FKs) so partners
+-- without accounts can be logged too.
+alter table public.sessions
+  add column if not exists partners text[] not null default '{}';
+
 ------------------------------------------------------------
 -- follows
 ------------------------------------------------------------
@@ -58,6 +64,31 @@ create table if not exists public.follows (
 );
 
 create index if not exists follows_followee_idx on public.follows (followee_id);
+
+------------------------------------------------------------
+-- chat_messages — persisted Coach conversations (v2)
+------------------------------------------------------------
+create table if not exists public.chat_messages (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  role       text not null check (role in ('user','assistant')),
+  content    text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists chat_messages_user_created_idx
+  on public.chat_messages (user_id, created_at);
+
+------------------------------------------------------------
+-- weekly_recaps — one Coach-generated recap per user per week (v2)
+------------------------------------------------------------
+create table if not exists public.weekly_recaps (
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  week_start date not null,
+  content    text not null,
+  created_at timestamptz not null default now(),
+  primary key (user_id, week_start)
+);
 
 ------------------------------------------------------------
 -- Profile auto-create on signup
@@ -95,9 +126,11 @@ create trigger on_auth_user_created
 ------------------------------------------------------------
 -- Row-Level Security
 ------------------------------------------------------------
-alter table public.profiles enable row level security;
-alter table public.sessions enable row level security;
-alter table public.follows  enable row level security;
+alter table public.profiles      enable row level security;
+alter table public.sessions      enable row level security;
+alter table public.follows       enable row level security;
+alter table public.chat_messages enable row level security;
+alter table public.weekly_recaps enable row level security;
 
 -- profiles -----------------------------------------------------------------
 drop policy if exists "profiles: read all (authenticated)" on public.profiles;
@@ -151,6 +184,45 @@ create policy "sessions: delete own"
   on public.sessions for delete
   to authenticated
   using (user_id = auth.uid());
+
+-- chat_messages — strictly private to the owner ----------------------------
+drop policy if exists "chat_messages: read own" on public.chat_messages;
+create policy "chat_messages: read own"
+  on public.chat_messages for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "chat_messages: insert own" on public.chat_messages;
+create policy "chat_messages: insert own"
+  on public.chat_messages for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "chat_messages: delete own" on public.chat_messages;
+create policy "chat_messages: delete own"
+  on public.chat_messages for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- weekly_recaps — strictly private to the owner -----------------------------
+drop policy if exists "weekly_recaps: read own" on public.weekly_recaps;
+create policy "weekly_recaps: read own"
+  on public.weekly_recaps for select
+  to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "weekly_recaps: insert own" on public.weekly_recaps;
+create policy "weekly_recaps: insert own"
+  on public.weekly_recaps for insert
+  to authenticated
+  with check (user_id = auth.uid());
+
+drop policy if exists "weekly_recaps: update own" on public.weekly_recaps;
+create policy "weekly_recaps: update own"
+  on public.weekly_recaps for update
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
 
 -- follows ------------------------------------------------------------------
 -- Read rows where I'm involved (so the followee can see their followers too)

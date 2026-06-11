@@ -27,18 +27,18 @@ export function AppShell({
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-paper-line bg-paper">
-        <div className="mx-auto max-w-5xl px-6 py-4 flex items-center justify-between gap-6">
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-4 flex items-center justify-between gap-3 sm:gap-6">
           <Link href="/dashboard" className="flex items-center gap-3 group">
             <span aria-hidden className="block h-5 w-9 bg-accent rounded-[1px] relative overflow-hidden">
               <span className="absolute right-1.5 top-0 bottom-0 w-1 bg-belt-black" />
               <span className="absolute right-2.5 top-0 bottom-0 w-px bg-paper/70" />
             </span>
-            <span className="font-display text-lg tracking-tightish group-hover:text-accent transition">
+            <span className="hidden sm:inline font-display text-lg tracking-tightish group-hover:text-accent transition">
               flowroll
             </span>
           </Link>
 
-          <nav className="flex items-center gap-6 text-sm">
+          <nav className="flex items-center gap-4 sm:gap-6 text-sm">
             <NavLink href="/dashboard" active={active === "dashboard"}>
               Dashboard
             </NavLink>
@@ -86,7 +86,7 @@ export function AppShell({
       </header>
 
       <main className="flex-1">
-        <div className="mx-auto max-w-5xl px-6 py-10">{children}</div>
+        <div className="mx-auto max-w-5xl px-4 sm:px-6 py-8 sm:py-10">{children}</div>
       </main>
     </div>
   );

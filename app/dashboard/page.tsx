@@ -6,10 +6,11 @@ import {
   weeklyBuckets,
   type SessionRow,
 } from "@/lib/stats";
-import { MatTimeChart, RoundsChart } from "./WeeklyVolumeChart";
+import { FeelTrendChart, MatTimeChart, RoundsChart } from "./WeeklyVolumeChart";
 import { SubmissionLedger } from "./SubmissionLedger";
 import { StreakTile } from "./StreakTile";
 import { NotesSearch } from "./NotesSearch";
+import { WeeklyRecap } from "./WeeklyRecap";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
   const { data: sessions } = await supabase
     .from("sessions")
     .select(
-      "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, feel, gym, drilled, note, created_at",
+      "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at",
     )
     .eq("user_id", user!.id)
     .order("trained_on", { ascending: false });
@@ -37,6 +38,20 @@ export default async function DashboardPage() {
   const streak = currentStreak(rows);
   const totals = sessionTotals(rows);
   const empty = rows.length === 0;
+
+  // Tally partners across all sessions for the "most rolled with" list.
+  const partnerCounts = new Map<string, { name: string; count: number }>();
+  for (const s of rows) {
+    for (const p of s.partners ?? []) {
+      const key = p.toLowerCase();
+      const cur = partnerCounts.get(key) ?? { name: p, count: 0 };
+      cur.count += 1;
+      partnerCounts.set(key, cur);
+    }
+  }
+  const topPartners = Array.from(partnerCounts.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 6);
 
   return (
     <AppShell profile={profile} active="dashboard">
@@ -70,6 +85,8 @@ export default async function DashboardPage() {
         <div className="mt-10 space-y-10">
           <StreakTile streak={streak} totals={totals} />
 
+          <WeeklyRecap />
+
           <section>
             <SectionHeading
               tag="Volume"
@@ -94,6 +111,19 @@ export default async function DashboardPage() {
                 </div>
               </div>
             </div>
+            <div className="mt-6 rounded-sm bg-paper-raised border border-paper-line p-5">
+              <div className="flex items-baseline justify-between">
+                <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
+                  Feel vs volume
+                </p>
+                <p className="font-mono text-[10px] text-ink-mute">
+                  feel sliding while volume holds = take a lighter week
+                </p>
+              </div>
+              <div className="mt-3">
+                <FeelTrendChart data={buckets} />
+              </div>
+            </div>
           </section>
 
           <section className="grid lg:grid-cols-2 gap-6">
@@ -106,6 +136,29 @@ export default async function DashboardPage() {
               <div className="mt-5 rounded-sm bg-paper-raised border border-paper-line p-5">
                 <SubmissionLedger sessions={rows} />
               </div>
+
+              {topPartners.length > 0 && (
+                <div className="mt-6">
+                  <SectionHeading
+                    tag="Circle"
+                    title="Training partners"
+                    hint="Who you've rolled with most"
+                  />
+                  <ul className="mt-5 rounded-sm bg-paper-raised border border-paper-line p-5 space-y-2">
+                    {topPartners.map((p) => (
+                      <li
+                        key={p.name}
+                        className="flex items-baseline justify-between gap-3"
+                      >
+                        <span className="text-sm text-ink">{p.name}</span>
+                        <span className="font-mono text-[11px] num text-ink-dim">
+                          {p.count} {p.count === 1 ? "session" : "sessions"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div>

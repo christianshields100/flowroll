@@ -14,6 +14,21 @@ export default async function ChatPage() {
     .eq("id", user!.id)
     .single();
 
+  // Restore the saved conversation (most recent 50 turns, oldest first).
+  const { data: saved } = await supabase
+    .from("chat_messages")
+    .select("role, content, created_at")
+    .eq("user_id", user!.id)
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  const initialMessages = (saved ?? [])
+    .reverse()
+    .map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content as string,
+    }));
+
   return (
     <AppShell profile={profile} active="chat">
       <p className="font-mono text-xs uppercase tracking-dojo text-ink-mute">
@@ -29,7 +44,7 @@ export default async function ChatPage() {
       <div className="belt-rule mt-6 max-w-sm" />
 
       <div className="mt-8">
-        <ChatPanel />
+        <ChatPanel initialMessages={initialMessages} />
       </div>
     </AppShell>
   );

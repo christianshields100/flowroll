@@ -7,6 +7,7 @@ export type SessionRow = {
   rounds: number;
   subs_hit: string[];
   subs_caught_in: string[];
+  partners: string[];
   feel: number;
   gym: string | null;
   drilled: string | null;
@@ -27,7 +28,7 @@ function dayIndex(d: Date): number {
 }
 
 // Monday-anchored week start for any date.
-function weekStart(d: Date): Date {
+export function weekStart(d: Date): Date {
   const day = d.getDay(); // 0=Sun .. 6=Sat
   const diff = (day + 6) % 7; // days since Monday
   const ws = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diff);
@@ -41,14 +42,16 @@ export type WeeklyBucket = {
   rounds: number;
   subs_hit: number;
   subs_caught_in: number;
+  feel_avg: number | null; // avg 1-5 feel across the week's sessions
 };
 
-// Last `weeks` weekly buckets ending with the current week.
+// Last `weeks` weekly buckets ending with the week containing `today`.
+// `today` is injectable so the bucketing is testable with fixed dates.
 export function weeklyBuckets(
   sessions: SessionRow[],
   weeks = 8,
+  today: Date = new Date(),
 ): WeeklyBucket[] {
-  const today = new Date();
   const thisWeekStart = weekStart(today);
 
   const buckets: WeeklyBucket[] = [];
@@ -69,10 +72,12 @@ export function weeklyBuckets(
       rounds: 0,
       subs_hit: 0,
       subs_caught_in: 0,
+      feel_avg: null,
     });
   }
 
   const byKey = new Map(buckets.map((b) => [b.weekStart, b]));
+  const feelTally = new Map<string, { sum: number; n: number }>();
   for (const s of sessions) {
     const ws = weekStart(parseDateOnly(s.trained_on));
     const key = isoDate(ws);
@@ -82,11 +87,19 @@ export function weeklyBuckets(
     b.rounds += s.rounds;
     b.subs_hit += s.subs_hit?.length ?? 0;
     b.subs_caught_in += s.subs_caught_in?.length ?? 0;
+    const t = feelTally.get(key) ?? { sum: 0, n: 0 };
+    t.sum += s.feel;
+    t.n += 1;
+    feelTally.set(key, t);
   }
+  feelTally.forEach((t, key) => {
+    const b = byKey.get(key);
+    if (b && t.n > 0) b.feel_avg = Math.round((t.sum / t.n) * 10) / 10;
+  });
   return buckets;
 }
 
-function isoDate(d: Date): string {
+export function isoDate(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${day}`;
@@ -95,12 +108,15 @@ function isoDate(d: Date): string {
 // Current streak = number of consecutive days ending today (or yesterday)
 // where there's at least one session. If you didn't train today but did
 // yesterday, the streak still counts; it only breaks if yesterday is missed.
-export function currentStreak(sessions: SessionRow[]): number {
+export function currentStreak(
+  sessions: SessionRow[],
+  today: Date = new Date(),
+): number {
   if (sessions.length === 0) return 0;
   const trainedDays = new Set(
     sessions.map((s) => dayIndex(parseDateOnly(s.trained_on))),
   );
-  const todayIdx = dayIndex(new Date());
+  const todayIdx = dayIndex(today);
 
   // Allow grace: if today not trained but yesterday was, start from yesterday.
   let cursor = trainedDays.has(todayIdx) ? todayIdx : todayIdx - 1;

@@ -71,7 +71,7 @@ export default async function FeedPage({
     ? await supabase
         .from("sessions")
         .select(
-          "id, user_id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, feel, gym, drilled, note, created_at",
+          "id, user_id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at",
         )
         .in("user_id", followedIds)
         .order("trained_on", { ascending: false })
@@ -274,7 +274,7 @@ function SessionCard({
         <p className="mt-1 text-sm text-ink-dim italic">{session.note}</p>
       )}
 
-      {(session.subs_hit?.length || session.subs_caught_in?.length) ? (
+      {(session.subs_hit?.length || session.subs_caught_in?.length || session.partners?.length) ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {session.subs_hit?.map((x, i) => (
             <span
@@ -290,6 +290,14 @@ function SessionCard({
               className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-black/10 text-belt-black border border-belt-black/30"
             >
               ✗ {x}
+            </span>
+          ))}
+          {session.partners?.map((x, i) => (
+            <span
+              key={`p-${i}`}
+              className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-blue/10 text-belt-blue border border-belt-blue/30"
+            >
+              w/ {x}
             </span>
           ))}
         </div>

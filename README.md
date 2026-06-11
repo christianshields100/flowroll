@@ -11,7 +11,10 @@ Built for one user first, but multi-user from day one.
 - **Supabase** — Postgres + magic-link & Google auth + Row-Level Security
 - **`@supabase/ssr`** for browser / server / middleware clients
 - **Recharts** for the dashboard charts
+- **Anthropic SDK** (Claude) for the Coach chatbot and weekly recaps
+- **react-markdown** for rendering Coach replies
 - **Tailwind** with a custom belt-color theme
+- **Vitest** for unit tests (`npm test`) — see `lib/stats.test.ts`
 - Deployed on **Vercel**
 
 ## Local setup
@@ -46,14 +49,22 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
 
 - **Magic-link + Google auth** — auto-creates a profile on first sign-in.
 - **`/log`** — log a session: date, duration, rounds, gym, what you drilled,
-  submissions hit / caught in, a 1-5 "how it felt", a free-text note.
+  submissions hit / caught in, training partners, a 1-5 "how it felt", a
+  free-text note. Submissions and partners use a chip autocomplete seeded from
+  a canonical list plus your own past entries, so names stay normalized.
+  `/log?edit=<id>` reuses the same form to edit an existing session.
 - **`/dashboard`** — streak, lifetime totals, weekly mat-time chart, weekly
-  rounds chart, submission ledger (hit vs caught-in toggle), searchable notes.
+  rounds chart, a feel-vs-volume trend (overtraining signal), submission ledger
+  (hit vs caught-in toggle), top training partners, searchable notes with
+  inline edit / delete, and a Coach-generated weekly recap.
 - **`/feed`** — find training partners by name, follow / unfollow, see their
   recent sessions. Read-only.
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
-  your notes and full log history. Scope-locked to BJJ and your own data —
-  it declines anything off-topic.
+  your notes and full log history. Scope-locked to BJJ and your own data — it
+  declines anything off-topic. Conversations persist across reloads, render
+  markdown, and the training-log context is prompt-cached across turns.
+- **PWA** — installable to a phone home screen (manifest + icons); mobile-tuned
+  header and layout for logging mat-side.
 
 ## Not in v1 (intentionally)
 
@@ -63,9 +74,9 @@ These are out of scope so we can ship. Tracked for later:
 - Leaderboards (mat hours, sub counts, etc.)
 - Whoop / Garmin / Apple Health integration
 - Photo & video attachments
-- Per-session editing & deletion UI (DB supports it via RLS, no UI yet)
 - Notifications (email digest, push)
 - Profile page with full session history for someone you follow
+- Per-user rate limiting on Coach (currently any signed-in user can chat)
 
 ## Architecture notes
 
@@ -77,10 +88,15 @@ These are out of scope so we can ship. Tracked for later:
   deletes are owner-only.
 - **A trigger on `auth.users`** creates a `public.profiles` row on signup,
   pulling `display_name` from OAuth metadata or the email local-part.
-- **Server actions** handle all writes (`logSession`, `follow`, `unfollow`)
-  so we get the cookie-bound Supabase client and automatic revalidation.
-- **Stats are computed in `lib/stats.ts`** as pure functions, so they're
-  trivially testable and the dashboard page stays a thin server component.
+- **Server actions** handle all writes (`logSession`, `updateSession`,
+  `deleteSession`, `follow`, `unfollow`, `clearConversation`) so we get the
+  cookie-bound Supabase client and automatic revalidation.
+- **Stats are computed in `lib/stats.ts`** as pure functions with an injectable
+  "today", so they're unit-tested in `lib/stats.test.ts` and the dashboard page
+  stays a thin server component.
+- **Coach persists turns to `chat_messages`** and prompt-caches the system +
+  training-log blocks; weekly recaps are cached per (user, week) in
+  `weekly_recaps` and only regenerated when a new session lands.
 
 ## Project layout
 
@@ -89,11 +105,15 @@ app/
   auth/callback/         OAuth & magic-link return handler
   auth/signout/          POST /auth/signout → clears session
   api/chat/              Coach chatbot API (auth + log context + Claude stream)
-  chat/                  Coach chat UI
-  dashboard/             Charts, ledger, notes search
+  api/recap/             Weekly recap generation (cached per user/week)
+  chat/                  Coach chat UI + persistence
+  dashboard/             Charts, feel trend, ledger, partners, recap, notes
   feed/                  Follows + timeline
-  log/                   Session form + server action
+  log/                   Session form (create + edit) + server actions
   login/                 Magic-link & Google sign-in
+  manifest.ts            PWA manifest
+components/TagInput.tsx  Chip autocomplete (submissions, partners)
+lib/submissions.ts       Canonical submission names for autocomplete
   error.tsx              Global error boundary
   not-found.tsx          404
   loading.tsx            Route-transition skeleton

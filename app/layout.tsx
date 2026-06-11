@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -23,6 +23,17 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "FlowRoll — BJJ training log",
   description: "A disciplined training log for jiu-jitsu.",
+  appleWebApp: {
+    capable: true,
+    title: "FlowRoll",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#FAFAF7",
 };
 
 export default function RootLayout({
