@@ -241,7 +241,12 @@ function Markdown({ content }: { content: string }) {
           />
         ),
         a: (props) => (
-          <a className="text-accent underline" target="_blank" {...props} />
+          <a
+            className="text-accent underline"
+            target="_blank"
+            rel="noopener noreferrer"
+            {...props}
+          />
         ),
       }}
     >

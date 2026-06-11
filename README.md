@@ -62,7 +62,9 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
   your notes and full log history. Scope-locked to BJJ and your own data — it
   declines anything off-topic. Conversations persist across reloads, render
-  markdown, and the training-log context is prompt-cached across turns.
+  markdown, and the training-log context is prompt-cached across turns. Coach
+  can also **web-search** for instructional videos/articles (server-side
+  `web_search` tool) — locked to BJJ topics, returns real cited links.
 - **PWA** — installable to a phone home screen (manifest + icons); mobile-tuned
   header and layout for logging mat-side.
 
