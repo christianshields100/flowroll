@@ -35,8 +35,9 @@ NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your publishable / anon key>
 NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used by magic-link redirects
 ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach chatbot
-GOOGLE_PLACES_API_KEY=...                     # server-only, optional — gym autocomplete (Places API New)
 ```
+
+(Gym autocomplete uses a free OpenStreetMap geocoder — no key required.)
 
 ### Supabase setup
 
@@ -54,9 +55,10 @@ GOOGLE_PLACES_API_KEY=...                     # server-only, optional — gym au
   submissions hit / caught in, training partners, a 1-5 "how it felt", a
   free-text note. Submissions and partners use a chip autocomplete seeded from
   a canonical list plus your own past entries, so names stay normalized. The
-  **gym** uses a Google Places autocomplete (`GymPicker`) and stores the
-  place's `place_id` so gyms are standardized for cross-gym analytics (free-text
-  fallback if the Places key isn't set). `/log?edit=<id>` reuses the same form.
+  **gym** uses a map-search autocomplete (`GymPicker`, backed by the free
+  OpenStreetMap/Photon geocoder via `/api/gyms/search`) and stores the place's
+  OSM id so gyms are standardized for cross-gym analytics; free-text still works
+  for anything not on the map. `/log?edit=<id>` reuses the same form.
 - **`/dashboard`** — streak, lifetime totals, a Daily / Weekly / Monthly toggle
   over the mat-time, rounds, and feel-vs-volume charts (last 14 days / 8 weeks /
   6 months), submission ledger (hit vs caught-in toggle), top training partners,

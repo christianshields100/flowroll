@@ -1,15 +1,17 @@
 // GET /api/gyms/search?q=... — gym autocomplete.
-// Proxies Google Places Autocomplete (New) with a SERVER-ONLY key so the key
-// never reaches the browser. Returns a slim list the GymPicker can render.
-// Standardization comes from the Google `placeId`, which is stable per place.
+// Backed by Photon (https://photon.komoot.io), a free OpenStreetMap geocoder
+// built for type-ahead — no API key, no billing. Standardization comes from the
+// OSM id (osm_type + osm_id), which is stable per place, so the same gym groups
+// together across users for analytics. Auth-gated so it isn't an open proxy.
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
 type Suggestion = { placeId: string; name: string; address: string };
 
+const PHOTON_URL = "https://photon.komoot.io/api/";
+
 export async function GET(request: Request) {
-  // Only signed-in users (keeps the proxied key from being a public endpoint).
   const supabase = createClient();
   const {
     data: { user },
@@ -18,64 +20,49 @@ export async function GET(request: Request) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const key = process.env.GOOGLE_PLACES_API_KEY;
-  if (!key) {
-    // Soft failure: the GymPicker falls back to free-text entry.
-    return Response.json(
-      { error: "Gym search is not configured.", suggestions: [] },
-      { status: 503 },
-    );
-  }
-
   const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
   if (q.length < 3) return Response.json({ suggestions: [] });
 
   try {
-    const res = await fetch(
-      "https://places.googleapis.com/v1/places:autocomplete",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Goog-Api-Key": key,
-        },
-        body: JSON.stringify({ input: q }),
-      },
-    );
-    if (!res.ok) {
-      return Response.json(
-        { error: "Gym search failed.", suggestions: [] },
-        { status: 502 },
-      );
-    }
+    const url = `${PHOTON_URL}?q=${encodeURIComponent(q)}&limit=8`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "FlowRoll/1.0 (BJJ training log)" },
+    });
+    if (!res.ok) return Response.json({ suggestions: [] });
+
     const data = (await res.json()) as {
-      suggestions?: {
-        placePrediction?: {
-          placeId?: string;
-          structuredFormat?: {
-            mainText?: { text?: string };
-            secondaryText?: { text?: string };
-          };
-          text?: { text?: string };
+      features?: {
+        properties?: {
+          osm_id?: number;
+          osm_type?: string;
+          name?: string;
+          street?: string;
+          city?: string;
+          county?: string;
+          state?: string;
+          country?: string;
         };
       }[];
     };
 
-    const suggestions: Suggestion[] = (data.suggestions ?? [])
-      .map((s) => s.placePrediction)
-      .filter((p): p is NonNullable<typeof p> => !!p?.placeId)
-      .map((p) => ({
-        placeId: p.placeId!,
-        name: p.structuredFormat?.mainText?.text ?? p.text?.text ?? "",
-        address: p.structuredFormat?.secondaryText?.text ?? "",
-      }))
-      .filter((s) => s.name.length > 0);
+    const seen = new Set<string>();
+    const suggestions: Suggestion[] = [];
+    for (const f of data.features ?? []) {
+      const p = f.properties;
+      // Only named places (skip bare streets/house numbers without a name).
+      if (!p?.name || p.osm_id == null || !p.osm_type) continue;
+      const placeId = `${p.osm_type}${p.osm_id}`; // e.g. "N12345" — OSM-stable
+      if (seen.has(placeId)) continue;
+      seen.add(placeId);
+      const address = [p.city ?? p.county, p.state, p.country]
+        .filter(Boolean)
+        .join(", ");
+      suggestions.push({ placeId, name: p.name, address });
+      if (suggestions.length >= 8) break;
+    }
 
     return Response.json({ suggestions });
   } catch {
-    return Response.json(
-      { error: "Gym search failed.", suggestions: [] },
-      { status: 502 },
-    );
+    return Response.json({ suggestions: [] });
   }
 }
