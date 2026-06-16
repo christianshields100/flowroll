@@ -11,6 +11,17 @@ type Suggestion = { placeId: string; name: string; address: string };
 
 const PHOTON_URL = "https://photon.komoot.io/api/";
 
+// Restrict results to the OSM primary tags BJJ / martial-arts academies use:
+// `amenity=dojo` (martial-arts specific) plus the fitness/sports-centre tags
+// many gyms carry (e.g. Renzo Gracie Academy is a sports_centre). This cuts out
+// the random businesses/streets a bare name search would otherwise return.
+const GYM_TAGS = [
+  "amenity:dojo",
+  "leisure:fitness_centre",
+  "leisure:sports_centre",
+];
+const GYM_TAG_QS = GYM_TAGS.map((t) => `&osm_tag=${t}`).join("");
+
 export async function GET(request: Request) {
   const supabase = createClient();
   const {
@@ -24,7 +35,7 @@ export async function GET(request: Request) {
   if (q.length < 3) return Response.json({ suggestions: [] });
 
   try {
-    const url = `${PHOTON_URL}?q=${encodeURIComponent(q)}&limit=8`;
+    const url = `${PHOTON_URL}?q=${encodeURIComponent(q)}&limit=10${GYM_TAG_QS}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "FlowRoll/1.0 (BJJ training log)" },
     });
