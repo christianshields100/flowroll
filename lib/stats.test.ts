@@ -3,6 +3,7 @@ import {
   currentStreak,
   formatHours,
   parseDateOnly,
+  periodBuckets,
   sessionTotals,
   weekStart,
   weeklyBuckets,
@@ -112,6 +113,70 @@ describe("weeklyBuckets", () => {
     );
     const bucket = buckets.find((b) => b.weekStart === "2026-05-25");
     expect(bucket?.mat_min).toBe(45);
+  });
+});
+
+describe("periodBuckets", () => {
+  const today = parseDateOnly("2026-06-10"); // Wednesday
+
+  it("daily: one bucket per day, ending today", () => {
+    const b = periodBuckets(
+      [
+        session({ trained_on: "2026-06-10", duration_min: 60 }),
+        session({ trained_on: "2026-06-09", duration_min: 30 }),
+      ],
+      "day",
+      14,
+      today,
+    );
+    expect(b).toHaveLength(14);
+    expect(b[13].key).toBe("2026-06-10");
+    expect(b[13].mat_min).toBe(60);
+    expect(b[12].key).toBe("2026-06-09");
+    expect(b[12].mat_min).toBe(30);
+    expect(b[0].key).toBe("2026-05-28");
+  });
+
+  it("monthly: calendar-month buckets, ending this month", () => {
+    const b = periodBuckets(
+      [
+        session({ trained_on: "2026-06-02", duration_min: 60, feel: 4 }),
+        session({ trained_on: "2026-06-28", duration_min: 40, feel: 2 }),
+        session({ trained_on: "2026-04-15", duration_min: 90 }),
+      ],
+      "month",
+      6,
+      today,
+    );
+    expect(b).toHaveLength(6);
+    expect(b[5].key).toBe("2026-06-01");
+    expect(b[5].mat_min).toBe(100); // both June sessions in one bucket
+    expect(b[5].feel_avg).toBe(3); // (4 + 2) / 2
+    expect(b[0].key).toBe("2026-01-01");
+    const april = b.find((x) => x.key === "2026-04-01");
+    expect(april?.mat_min).toBe(90);
+  });
+
+  it("monthly: crosses a year boundary cleanly", () => {
+    const jan = parseDateOnly("2026-01-15");
+    const b = periodBuckets(
+      [session({ trained_on: "2025-12-10", duration_min: 55 })],
+      "month",
+      3,
+      jan,
+    );
+    expect(b.map((x) => x.key)).toEqual([
+      "2025-11-01",
+      "2025-12-01",
+      "2026-01-01",
+    ]);
+    expect(b[1].mat_min).toBe(55);
+  });
+
+  it("weeklyBuckets stays back-compatible (weekStart field)", () => {
+    const b = weeklyBuckets([], 8, today);
+    expect(b[7].weekStart).toBe("2026-06-08");
+    expect(b[7].key).toBe("2026-06-08");
   });
 });
 

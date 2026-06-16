@@ -35,39 +35,64 @@ export function weekStart(d: Date): Date {
   return ws;
 }
 
-export type WeeklyBucket = {
-  weekStart: string; // ISO 'YYYY-MM-DD'
-  label: string;     // 'Mar 4' style
+// Dashboard time-series granularity. The user toggles between these.
+export type Granularity = "day" | "week" | "month";
+
+export type PeriodBucket = {
+  key: string;   // ISO 'YYYY-MM-DD' of the period start
+  label: string; // 'Mar 4' (day/week) or 'Mar' (month)
   mat_min: number;
   rounds: number;
   subs_hit: number;
   subs_caught_in: number;
-  feel_avg: number | null; // avg 1-5 feel across the week's sessions
+  feel_avg: number | null; // avg 1-5 feel across the period's sessions
 };
 
-// Last `weeks` weekly buckets ending with the week containing `today`.
-// `today` is injectable so the bucketing is testable with fixed dates.
-export function weeklyBuckets(
-  sessions: SessionRow[],
-  weeks = 8,
-  today: Date = new Date(),
-): WeeklyBucket[] {
-  const thisWeekStart = weekStart(today);
+// How many periods each view shows by default.
+export const DEFAULT_PERIOD_COUNT: Record<Granularity, number> = {
+  day: 14,
+  week: 8,
+  month: 6,
+};
 
-  const buckets: WeeklyBucket[] = [];
-  for (let i = weeks - 1; i >= 0; i--) {
-    const ws = new Date(
-      thisWeekStart.getFullYear(),
-      thisWeekStart.getMonth(),
-      thisWeekStart.getDate() - i * 7,
-    );
-    const wsKey = isoDate(ws);
+// Start of the day/week/month containing `d`, in local time.
+function periodStart(d: Date, g: Granularity): Date {
+  if (g === "day") return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  if (g === "week") return weekStart(d);
+  return new Date(d.getFullYear(), d.getMonth(), 1); // month
+}
+
+// The period start `n` periods before `start` (n >= 0 walks backwards).
+// JS Date normalizes out-of-range day/month, so rollovers are handled.
+function shiftPeriod(start: Date, g: Granularity, n: number): Date {
+  if (g === "day")
+    return new Date(start.getFullYear(), start.getMonth(), start.getDate() - n);
+  if (g === "week")
+    return new Date(start.getFullYear(), start.getMonth(), start.getDate() - n * 7);
+  return new Date(start.getFullYear(), start.getMonth() - n, 1); // month
+}
+
+function periodLabel(d: Date, g: Granularity): string {
+  if (g === "month") return d.toLocaleDateString(undefined, { month: "short" });
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+// Last `count` buckets at the given granularity, ending with the period
+// containing `today`. `today` is injectable so the bucketing is testable.
+export function periodBuckets(
+  sessions: SessionRow[],
+  granularity: Granularity = "week",
+  count = DEFAULT_PERIOD_COUNT[granularity],
+  today: Date = new Date(),
+): PeriodBucket[] {
+  const thisStart = periodStart(today, granularity);
+
+  const buckets: PeriodBucket[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const ps = shiftPeriod(thisStart, granularity, i);
     buckets.push({
-      weekStart: wsKey,
-      label: ws.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-      }),
+      key: isoDate(ps),
+      label: periodLabel(ps, granularity),
       mat_min: 0,
       rounds: 0,
       subs_hit: 0,
@@ -76,11 +101,10 @@ export function weeklyBuckets(
     });
   }
 
-  const byKey = new Map(buckets.map((b) => [b.weekStart, b]));
+  const byKey = new Map(buckets.map((b) => [b.key, b]));
   const feelTally = new Map<string, { sum: number; n: number }>();
   for (const s of sessions) {
-    const ws = weekStart(parseDateOnly(s.trained_on));
-    const key = isoDate(ws);
+    const key = isoDate(periodStart(parseDateOnly(s.trained_on), granularity));
     const b = byKey.get(key);
     if (!b) continue; // outside the window
     b.mat_min += s.duration_min;
@@ -97,6 +121,19 @@ export function weeklyBuckets(
     if (b && t.n > 0) b.feel_avg = Math.round((t.sum / t.n) * 10) / 10;
   });
   return buckets;
+}
+
+// Back-compat alias: weekly buckets with the legacy `weekStart` field.
+export type WeeklyBucket = PeriodBucket & { weekStart: string };
+export function weeklyBuckets(
+  sessions: SessionRow[],
+  weeks = 8,
+  today: Date = new Date(),
+): WeeklyBucket[] {
+  return periodBuckets(sessions, "week", weeks, today).map((b) => ({
+    ...b,
+    weekStart: b.key,
+  }));
 }
 
 export function isoDate(d: Date): string {

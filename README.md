@@ -53,10 +53,10 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   free-text note. Submissions and partners use a chip autocomplete seeded from
   a canonical list plus your own past entries, so names stay normalized.
   `/log?edit=<id>` reuses the same form to edit an existing session.
-- **`/dashboard`** — streak, lifetime totals, weekly mat-time chart, weekly
-  rounds chart, a feel-vs-volume trend (overtraining signal), submission ledger
-  (hit vs caught-in toggle), top training partners, searchable notes with
-  inline edit / delete, and a Coach-generated weekly recap.
+- **`/dashboard`** — streak, lifetime totals, a Daily / Weekly / Monthly toggle
+  over the mat-time, rounds, and feel-vs-volume charts (last 14 days / 8 weeks /
+  6 months), submission ledger (hit vs caught-in toggle), top training partners,
+  searchable notes with inline edit / delete, and a Coach-generated weekly recap.
 - **`/feed`** — find training partners by name, follow / unfollow, see their
   recent sessions. **Instagram-style privacy:** toggle your account public or
   private. Public = anyone can follow you instantly. Private = follows become

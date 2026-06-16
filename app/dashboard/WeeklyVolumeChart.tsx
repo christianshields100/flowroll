@@ -11,11 +11,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import type { WeeklyBucket } from "@/lib/stats";
+import type { PeriodBucket } from "@/lib/stats";
 
 // Two separate charts — one for mat minutes (red), one for rounds rolled (black).
 
-export function MatTimeChart({ data }: { data: WeeklyBucket[] }) {
+export function MatTimeChart({ data }: { data: PeriodBucket[] }) {
   return (
     <ChartFrame
       data={data}
@@ -27,7 +27,7 @@ export function MatTimeChart({ data }: { data: WeeklyBucket[] }) {
   );
 }
 
-export function RoundsChart({ data }: { data: WeeklyBucket[] }) {
+export function RoundsChart({ data }: { data: PeriodBucket[] }) {
   return (
     <ChartFrame
       data={data}
@@ -41,7 +41,7 @@ export function RoundsChart({ data }: { data: WeeklyBucket[] }) {
 
 // Feel (1-5 line, right axis) over mat time (bars, left axis). Sliding feel
 // against steady-or-rising volume is the cheap overtraining signal.
-export function FeelTrendChart({ data }: { data: WeeklyBucket[] }) {
+export function FeelTrendChart({ data }: { data: PeriodBucket[] }) {
   return (
     <div className="h-48 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -123,7 +123,7 @@ function ChartFrame({
   tooltipLabel,
   tooltipUnit,
 }: {
-  data: WeeklyBucket[];
+  data: PeriodBucket[];
   dataKey: "mat_min" | "rounds";
   color: string;
   tooltipLabel: string;

@@ -2,11 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import {
   currentStreak,
+  periodBuckets,
   sessionTotals,
-  weeklyBuckets,
   type SessionRow,
 } from "@/lib/stats";
-import { FeelTrendChart, MatTimeChart, RoundsChart } from "./WeeklyVolumeChart";
+import { VolumeViews } from "./VolumeViews";
 import { SubmissionLedger } from "./SubmissionLedger";
 import { StreakTile } from "./StreakTile";
 import { NotesSearch } from "./NotesSearch";
@@ -34,7 +34,10 @@ export default async function DashboardPage() {
     .order("trained_on", { ascending: false });
 
   const rows = (sessions ?? []) as SessionRow[];
-  const buckets = weeklyBuckets(rows, 8);
+  // Pre-compute all three views so the client toggle switches instantly.
+  const daily = periodBuckets(rows, "day");
+  const weekly = periodBuckets(rows, "week");
+  const monthly = periodBuckets(rows, "month");
   const streak = currentStreak(rows);
   const totals = sessionTotals(rows);
   const empty = rows.length === 0;
@@ -87,44 +90,7 @@ export default async function DashboardPage() {
 
           <WeeklyRecap />
 
-          <section>
-            <SectionHeading
-              tag="Volume"
-              title="The last 8 weeks"
-              hint="Time on the mat and rounds rolled, week by week"
-            />
-            <div className="mt-5 grid lg:grid-cols-2 gap-6">
-              <div className="rounded-sm bg-paper-raised border border-paper-line p-5">
-                <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-                  Mat time (min)
-                </p>
-                <div className="mt-3">
-                  <MatTimeChart data={buckets} />
-                </div>
-              </div>
-              <div className="rounded-sm bg-paper-raised border border-paper-line p-5">
-                <p className="font-mono text-[10px] uppercase tracking-dojo text-ink">
-                  Rounds rolled
-                </p>
-                <div className="mt-3">
-                  <RoundsChart data={buckets} />
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 rounded-sm bg-paper-raised border border-paper-line p-5">
-              <div className="flex items-baseline justify-between">
-                <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-                  Feel vs volume
-                </p>
-                <p className="font-mono text-[10px] text-ink-mute">
-                  feel sliding while volume holds = take a lighter week
-                </p>
-              </div>
-              <div className="mt-3">
-                <FeelTrendChart data={buckets} />
-              </div>
-            </div>
-          </section>
+          <VolumeViews daily={daily} weekly={weekly} monthly={monthly} />
 
           <section className="grid lg:grid-cols-2 gap-6">
             <div>
