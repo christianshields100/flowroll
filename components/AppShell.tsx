@@ -22,7 +22,7 @@ export function AppShell({
 }: {
   children: React.ReactNode;
   profile: Profile | null;
-  active: "dashboard" | "log" | "feed" | "chat";
+  active: "dashboard" | "log" | "feed" | "chat" | null;
 }) {
   return (
     <div className="min-h-screen flex flex-col">

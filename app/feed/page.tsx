@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
@@ -154,12 +155,15 @@ export default async function FeedPage({
                     key={p.id}
                     className="flex items-center justify-between gap-3 rounded-sm bg-paper-raised border border-paper-line px-3 py-2"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <Link
+                      href={`/u/${p.id}`}
+                      className="flex items-center gap-3 min-w-0 group"
+                    >
                       <BeltChip belt={p.belt} stripes={p.stripes} />
-                      <span className="text-sm text-ink truncate">
+                      <span className="text-sm text-ink truncate group-hover:text-accent transition">
                         {p.display_name}
                       </span>
-                    </div>
+                    </Link>
                     <span className="flex items-center gap-2">
                       <form action={acceptFollowRequest}>
                         <input type="hidden" name="user_id" value={p.id} />
@@ -248,12 +252,15 @@ export default async function FeedPage({
                     key={p.id}
                     className="flex items-center justify-between gap-3 rounded-sm bg-paper-raised border border-paper-line px-3 py-2"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <Link
+                      href={`/u/${p.id}`}
+                      className="flex items-center gap-3 min-w-0 group"
+                    >
                       <BeltChip belt={p.belt} stripes={p.stripes} />
-                      <span className="text-sm text-ink truncate">
+                      <span className="text-sm text-ink truncate group-hover:text-accent transition">
                         {p.display_name}
                       </span>
-                    </div>
+                    </Link>
                     <form action={removeFollower}>
                       <input type="hidden" name="user_id" value={p.id} />
                       <button type="submit" className={btnGhost}>
@@ -346,9 +353,12 @@ function PersonRow({
 }) {
   return (
     <li className="flex items-center justify-between gap-3 rounded-sm bg-paper-raised border border-paper-line px-3 py-2">
-      <div className="flex items-center gap-2 min-w-0">
+      <Link
+        href={`/u/${profile.id}`}
+        className="flex items-center gap-2 min-w-0 group"
+      >
         <BeltChip belt={profile.belt} stripes={profile.stripes} />
-        <span className="text-sm text-ink truncate">
+        <span className="text-sm text-ink truncate group-hover:text-accent transition">
           {profile.display_name}
         </span>
         {showPrivacy && profile.is_private && (
@@ -356,7 +366,7 @@ function PersonRow({
             private
           </span>
         )}
-      </div>
+      </Link>
       {state === "following" ? (
         <form action={unfollow}>
           <input type="hidden" name="user_id" value={profile.id} />
@@ -422,10 +432,21 @@ function SessionCard({
     <li className="rounded-sm bg-paper-raised border border-paper-line p-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
-          {author && <BeltChip belt={author.belt} stripes={author.stripes} />}
-          <span className="font-display text-base tracking-tightish truncate">
-            {author?.display_name ?? "Unknown"}
-          </span>
+          {author ? (
+            <Link
+              href={`/u/${session.user_id}`}
+              className="flex items-center gap-3 min-w-0 group"
+            >
+              <BeltChip belt={author.belt} stripes={author.stripes} />
+              <span className="font-display text-base tracking-tightish truncate group-hover:text-accent transition">
+                {author.display_name}
+              </span>
+            </Link>
+          ) : (
+            <span className="font-display text-base tracking-tightish truncate">
+              Unknown
+            </span>
+          )}
           <span className="font-mono text-[11px] uppercase tracking-dojo text-ink-mute">
             {date}
             {session.gym ? ` · ${session.gym}` : ""}

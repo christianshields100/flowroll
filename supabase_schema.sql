@@ -234,14 +234,21 @@ create policy "profiles: update own"
   with check (id = auth.uid());
 
 -- sessions -----------------------------------------------------------------
--- Read: own sessions OR sessions of users I follow (accepted follows only —
--- a pending request grants nothing).
+-- Read: own sessions, OR any session of a PUBLIC account (Instagram-style —
+-- public profiles are viewable by anyone signed in), OR sessions of a private
+-- account I have an ACCEPTED follow with. A pending request grants nothing.
+-- The feed query still scopes itself to accepted follows, so this only opens
+-- up direct profile views, not the timeline.
 drop policy if exists "sessions: read own or followed" on public.sessions;
 create policy "sessions: read own or followed"
   on public.sessions for select
   to authenticated
   using (
     user_id = auth.uid()
+    or exists (
+      select 1 from public.profiles p
+      where p.id = sessions.user_id and p.is_private = false
+    )
     or exists (
       select 1 from public.follows f
       where f.follower_id = auth.uid()
