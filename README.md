@@ -65,12 +65,19 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   in search (so people can request), but a private account's sessions are
   hidden from everyone who isn't an accepted follower — enforced in Postgres
   RLS, not app code.
+- **`/u/[id]`** — public profile pages. Click any name in the feed to see their
+  belt, session/mat-time/rounds stats, and recent sessions. A private account
+  viewed by a non-follower shows a locked state (name + belt only, "follow to
+  see their sessions") — enforced by RLS. Your own profile links to your
+  dashboard.
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
   your notes and full log history. Scope-locked to BJJ and your own data — it
   declines anything off-topic. Conversations persist across reloads, render
   markdown, and the training-log context is prompt-cached across turns. Coach
   can also **web-search** for instructional videos/articles (server-side
-  `web_search` tool) — locked to BJJ topics, returns real cited links.
+  `web_search` tool) — locked to BJJ topics, returns real cited links. Capped at
+  50 messages/user/day (tamper-proof `check_and_bump_chat_quota` RPC) so one
+  account can't run up the API bill.
 - **PWA** — installable to a phone home screen (manifest + icons); mobile-tuned
   header and layout for logging mat-side.
 
@@ -83,8 +90,7 @@ These are out of scope so we can ship. Tracked for later:
 - Whoop / Garmin / Apple Health integration
 - Photo & video attachments
 - Notifications (email digest, push)
-- Profile page with full session history for someone you follow
-- Per-user rate limiting on Coach (currently any signed-in user can chat)
+- Follower / following counts on profiles (needs a definer count to respect RLS)
 
 ## Architecture notes
 
