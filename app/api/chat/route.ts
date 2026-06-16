@@ -16,6 +16,11 @@ const MODEL = "claude-opus-4-8";
 // re-sent every turn, so old chat turns are the only unbounded input.
 const MAX_HISTORY_MESSAGES = 20;
 
+// Per-user daily cap on Coach messages. Generous for a real athlete; stops a
+// single signed-up account from running up the API bill (each message can also
+// trigger web searches).
+const DAILY_CHAT_LIMIT = 50;
+
 type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const SYSTEM_INSTRUCTIONS = `You are Coach, the in-app assistant for FlowRoll, a Brazilian Jiu-Jitsu training log. You answer questions for one athlete using their own training history, which is provided below.
@@ -85,6 +90,22 @@ export async function POST(request: Request) {
     return Response.json(
       { error: "Last message must be from the user." },
       { status: 400 },
+    );
+  }
+
+  // Per-user daily rate limit, enforced before the (paid) Claude call. The RPC
+  // increments a tamper-proof counter and raises when the cap is hit; a quota
+  // breach blocks, but an unexpected RPC error fails open so a DB blip doesn't
+  // take chat down.
+  const { error: quotaError } = await supabase.rpc("check_and_bump_chat_quota", {
+    daily_limit: DAILY_CHAT_LIMIT,
+  });
+  if (quotaError?.message?.includes("chat_quota_exceeded")) {
+    return Response.json(
+      {
+        error: `You've reached today's Coach limit of ${DAILY_CHAT_LIMIT} messages. It resets tomorrow.`,
+      },
+      { status: 429 },
     );
   }
 

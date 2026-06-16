@@ -124,6 +124,53 @@ create table if not exists public.weekly_recaps (
 );
 
 ------------------------------------------------------------
+-- chat_usage — per-user daily Coach quota (v3). The counter is bumped only
+-- through the SECURITY DEFINER function below, so a user can't reset it by
+-- clearing their conversation or by writing the row directly.
+------------------------------------------------------------
+create table if not exists public.chat_usage (
+  user_id uuid not null references auth.users(id) on delete cascade,
+  day     date not null,
+  count   integer not null default 0,
+  primary key (user_id, day)
+);
+
+-- Atomically record one Coach use for the caller today and return how many
+-- remain. Raises 'chat_quota_exceeded' once the daily limit is hit. Runs as
+-- definer so it can write chat_usage regardless of RLS; uses auth.uid() so the
+-- caller can't bump someone else's counter.
+create or replace function public.check_and_bump_chat_quota(daily_limit integer)
+returns integer
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  uid  uuid := auth.uid();
+  used integer;
+begin
+  if uid is null then
+    raise exception 'not authenticated';
+  end if;
+
+  insert into public.chat_usage (user_id, day, count)
+    values (uid, current_date, 1)
+  on conflict (user_id, day)
+    do update set count = public.chat_usage.count + 1
+  returning count into used;
+
+  if used > daily_limit then
+    -- clamp so the stored counter doesn't run away past the limit
+    update public.chat_usage set count = daily_limit
+      where user_id = uid and day = current_date;
+    raise exception 'chat_quota_exceeded';
+  end if;
+
+  return daily_limit - used;
+end;
+$$;
+
+------------------------------------------------------------
 -- Profile auto-create on signup
 -- Pulls display_name from raw_user_meta_data->>'display_name' if present,
 -- else from the email local-part. Falls back to 'flowroll athlete' for safety.
@@ -164,6 +211,7 @@ alter table public.sessions      enable row level security;
 alter table public.follows       enable row level security;
 alter table public.chat_messages enable row level security;
 alter table public.weekly_recaps enable row level security;
+alter table public.chat_usage    enable row level security;
 
 -- profiles -----------------------------------------------------------------
 drop policy if exists "profiles: read all (authenticated)" on public.profiles;
@@ -237,6 +285,13 @@ create policy "chat_messages: insert own"
 drop policy if exists "chat_messages: delete own" on public.chat_messages;
 create policy "chat_messages: delete own"
   on public.chat_messages for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- chat_usage — owner may read their counter; writes only via the RPC --------
+drop policy if exists "chat_usage: read own" on public.chat_usage;
+create policy "chat_usage: read own"
+  on public.chat_usage for select
   to authenticated
   using (user_id = auth.uid());
 
