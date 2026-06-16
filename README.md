@@ -58,7 +58,13 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   (hit vs caught-in toggle), top training partners, searchable notes with
   inline edit / delete, and a Coach-generated weekly recap.
 - **`/feed`** — find training partners by name, follow / unfollow, see their
-  recent sessions. Read-only.
+  recent sessions. **Instagram-style privacy:** toggle your account public or
+  private. Public = anyone can follow you instantly. Private = follows become
+  requests you Accept / Decline; existing followers keep access; you can Remove
+  followers. A pending request grants no visibility. Profiles stay discoverable
+  in search (so people can request), but a private account's sessions are
+  hidden from everyone who isn't an accepted follower — enforced in Postgres
+  RLS, not app code.
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
   your notes and full log history. Scope-locked to BJJ and your own data — it
   declines anything off-topic. Conversations persist across reloads, render
@@ -85,9 +91,14 @@ These are out of scope so we can ship. Tracked for later:
 - **Auth lives in middleware.** Every request to `/dashboard`, `/log`, `/feed`,
   `/chat` refreshes the session and gates unauthenticated users back to `/login`.
 - **RLS is the access boundary.** The app never gates "can I read this row?"
-  in code — Postgres does. Sessions are readable by the owner or anyone who
-  follows them. Profiles are readable by all authenticated users. Inserts and
-  deletes are owner-only.
+  in code — Postgres does. Sessions are readable by the owner or an **accepted**
+  follower (a `follows.status = 'accepted'` row). Profiles are readable by all
+  authenticated users (needed for discovery/search). A DB trigger sets a new
+  follow's status from the target's `is_private` flag — pending for private,
+  accepted for public — so a follower can't smuggle in `status='accepted'`
+  against a private account. The followee can accept a request or remove a
+  follower via their own update/delete policies. Inserts/deletes are
+  ownership-scoped.
 - **A trigger on `auth.users`** creates a `public.profiles` row on signup,
   pulling `display_name` from OAuth metadata or the email local-part.
 - **Server actions** handle all writes (`logSession`, `updateSession`,

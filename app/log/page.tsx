@@ -36,11 +36,13 @@ export default async function LogPage({
   ]);
   const subSuggestions = submissionSuggestions(pastSubs);
 
-  // Partner suggestions: people you've logged before + people you follow.
+  // Partner suggestions: people you've logged before + people you follow
+  // (accepted follows only — pending requests aren't training partners yet).
   const { data: followRows } = await supabase
     .from("follows")
     .select("followee_id")
-    .eq("follower_id", user!.id);
+    .eq("follower_id", user!.id)
+    .eq("status", "accepted");
   const followedIds = (followRows ?? []).map((r) => r.followee_id as string);
   const { data: followedProfiles } = followedIds.length
     ? await supabase

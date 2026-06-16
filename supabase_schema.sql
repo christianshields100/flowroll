@@ -25,6 +25,11 @@ create table if not exists public.profiles (
 create index if not exists profiles_display_name_trgm
   on public.profiles using gin (display_name gin_trgm_ops);
 
+-- v3: Instagram-style privacy. Private accounts turn new follows into
+-- pending requests that the account owner must accept.
+alter table public.profiles
+  add column if not exists is_private boolean not null default false;
+
 ------------------------------------------------------------
 -- sessions
 ------------------------------------------------------------
@@ -64,6 +69,34 @@ create table if not exists public.follows (
 );
 
 create index if not exists follows_followee_idx on public.follows (followee_id);
+
+-- v3: follow lifecycle. 'accepted' grants session visibility; 'pending' is a
+-- request awaiting the followee. Existing rows default to accepted, so
+-- followers from before the privacy feature keep access (Instagram behavior).
+alter table public.follows
+  add column if not exists status text not null default 'accepted'
+  check (status in ('pending','accepted'));
+
+-- The DB, not the client, decides whether a new follow is live or a request —
+-- a follower can't smuggle in status='accepted' against a private account.
+create or replace function public.set_follow_status()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  select case when p.is_private then 'pending' else 'accepted' end
+    into new.status
+    from public.profiles p
+    where p.id = new.followee_id;
+  return new;
+end;
+$$;
+
+drop trigger if exists set_follow_status_on_insert on public.follows;
+create trigger set_follow_status_on_insert
+  before insert on public.follows
+  for each row execute function public.set_follow_status();
 
 ------------------------------------------------------------
 -- chat_messages — persisted Coach conversations (v2)
@@ -153,7 +186,8 @@ create policy "profiles: update own"
   with check (id = auth.uid());
 
 -- sessions -----------------------------------------------------------------
--- Read: own sessions OR sessions of users I follow
+-- Read: own sessions OR sessions of users I follow (accepted follows only —
+-- a pending request grants nothing).
 drop policy if exists "sessions: read own or followed" on public.sessions;
 create policy "sessions: read own or followed"
   on public.sessions for select
@@ -162,7 +196,9 @@ create policy "sessions: read own or followed"
     user_id = auth.uid()
     or exists (
       select 1 from public.follows f
-      where f.follower_id = auth.uid() and f.followee_id = sessions.user_id
+      where f.follower_id = auth.uid()
+        and f.followee_id = sessions.user_id
+        and f.status = 'accepted'
     )
   );
 
@@ -243,3 +279,18 @@ create policy "follows: delete as follower"
   on public.follows for delete
   to authenticated
   using (follower_id = auth.uid());
+
+-- v3: the followee can decline a request or remove an existing follower.
+drop policy if exists "follows: delete as followee" on public.follows;
+create policy "follows: delete as followee"
+  on public.follows for delete
+  to authenticated
+  using (followee_id = auth.uid());
+
+-- v3: the followee can accept a pending request (the only allowed update).
+drop policy if exists "follows: followee accepts" on public.follows;
+create policy "follows: followee accepts"
+  on public.follows for update
+  to authenticated
+  using (followee_id = auth.uid())
+  with check (followee_id = auth.uid() and status = 'accepted');

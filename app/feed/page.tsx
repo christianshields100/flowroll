@@ -1,7 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
-import { follow, unfollow } from "./actions";
+import {
+  acceptFollowRequest,
+  follow,
+  removeFollower,
+  setAccountPrivacy,
+  unfollow,
+} from "./actions";
 
 type Belt = "white" | "blue" | "purple" | "brown" | "black";
 type Profile = {
@@ -9,7 +15,10 @@ type Profile = {
   display_name: string;
   belt: Belt;
   stripes: number;
+  is_private?: boolean;
 };
+// What the signed-in user's relationship to a profile is.
+type FollowState = "following" | "requested" | "none";
 
 const BELT_BG: Record<Belt, string> = {
   white: "bg-belt-white",
@@ -32,24 +41,59 @@ export default async function FeedPage({
 
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("display_name, belt, stripes")
+    .select("display_name, belt, stripes, is_private")
     .eq("id", me)
     .single();
 
-  // Who I follow → ids + their profiles.
-  const { data: followRows } = await supabase
+  // Outgoing: who I follow (accepted) and who I've requested (pending).
+  const { data: outgoing } = await supabase
     .from("follows")
-    .select("followee_id")
+    .select("followee_id, status")
     .eq("follower_id", me);
-  const followedIds = (followRows ?? []).map((r) => r.followee_id as string);
+  const followedIds = (outgoing ?? [])
+    .filter((r) => r.status === "accepted")
+    .map((r) => r.followee_id as string);
+  const requestedIds = new Set(
+    (outgoing ?? [])
+      .filter((r) => r.status === "pending")
+      .map((r) => r.followee_id as string),
+  );
 
-  const { data: followedProfilesData } = followedIds.length
+  // Incoming: pending requests to approve + my accepted followers.
+  const { data: incoming } = await supabase
+    .from("follows")
+    .select("follower_id, status")
+    .eq("followee_id", me);
+  const requesterIds = (incoming ?? [])
+    .filter((r) => r.status === "pending")
+    .map((r) => r.follower_id as string);
+  const followerIds = (incoming ?? [])
+    .filter((r) => r.status === "accepted")
+    .map((r) => r.follower_id as string);
+
+  // One profile fetch for everyone we need to render.
+  const neededIds = Array.from(
+    new Set([...followedIds, ...requesterIds, ...followerIds]),
+  );
+  const { data: knownProfilesData } = neededIds.length
     ? await supabase
         .from("profiles")
-        .select("id, display_name, belt, stripes")
-        .in("id", followedIds)
+        .select("id, display_name, belt, stripes, is_private")
+        .in("id", neededIds)
     : { data: [] as Profile[] };
-  const followedProfiles = (followedProfilesData ?? []) as Profile[];
+  const profileById = new Map(
+    ((knownProfilesData ?? []) as Profile[]).map((p) => [p.id, p]),
+  );
+
+  const followedProfiles = followedIds
+    .map((id) => profileById.get(id))
+    .filter(Boolean) as Profile[];
+  const requesterProfiles = requesterIds
+    .map((id) => profileById.get(id))
+    .filter(Boolean) as Profile[];
+  const followerProfiles = followerIds
+    .map((id) => profileById.get(id))
+    .filter(Boolean) as Profile[];
 
   // Search results — only run if a query is present.
   const q = (searchParams.q ?? "").trim();
@@ -57,16 +101,18 @@ export default async function FeedPage({
   if (q) {
     const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, belt, stripes")
+      .select("id, display_name, belt, stripes, is_private")
       .ilike("display_name", `%${q}%`)
       .neq("id", me)
       .limit(10);
     searchResults = (data ?? []) as Profile[];
   }
   const followedSet = new Set(followedIds);
+  const stateFor = (id: string): FollowState =>
+    followedSet.has(id) ? "following" : requestedIds.has(id) ? "requested" : "none";
 
-  // Feed: sessions from followed users only. RLS would allow our own too;
-  // explicit IN keeps the feed scoped to partners.
+  // Feed: sessions from accepted follows only. RLS enforces this too;
+  // the explicit IN keeps the feed scoped and the query cheap.
   const { data: feedSessionsData } = followedIds.length
     ? await supabase
         .from("sessions")
@@ -82,8 +128,6 @@ export default async function FeedPage({
     user_id: string;
   })[];
 
-  const profileById = new Map(followedProfiles.map((p) => [p.id, p]));
-
   return (
     <AppShell profile={myProfile} active="feed">
       <p className="font-mono text-xs uppercase tracking-dojo text-ink-mute">
@@ -97,6 +141,45 @@ export default async function FeedPage({
       <div className="mt-10 grid lg:grid-cols-[1fr_2fr] gap-10">
         {/* LEFT: people */}
         <section className="space-y-8">
+          <PrivacyCard isPrivate={myProfile?.is_private ?? false} />
+
+          {requesterProfiles.length > 0 && (
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
+                Follow requests · {requesterProfiles.length}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {requesterProfiles.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded-sm bg-paper-raised border border-paper-line px-3 py-2"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <BeltChip belt={p.belt} stripes={p.stripes} />
+                      <span className="text-sm text-ink truncate">
+                        {p.display_name}
+                      </span>
+                    </div>
+                    <span className="flex items-center gap-2">
+                      <form action={acceptFollowRequest}>
+                        <input type="hidden" name="user_id" value={p.id} />
+                        <button type="submit" className={btnPrimary}>
+                          Accept
+                        </button>
+                      </form>
+                      <form action={removeFollower}>
+                        <input type="hidden" name="user_id" value={p.id} />
+                        <button type="submit" className={btnGhost}>
+                          Decline
+                        </button>
+                      </form>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <div>
             <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
               Find people
@@ -128,7 +211,8 @@ export default async function FeedPage({
                     <PersonRow
                       key={p.id}
                       profile={p}
-                      isFollowing={followedSet.has(p.id)}
+                      state={stateFor(p.id)}
+                      showPrivacy
                     />
                   ))
                 )}
@@ -147,11 +231,40 @@ export default async function FeedPage({
                 </li>
               ) : (
                 followedProfiles.map((p) => (
-                  <PersonRow key={p.id} profile={p} isFollowing />
+                  <PersonRow key={p.id} profile={p} state="following" />
                 ))
               )}
             </ul>
           </div>
+
+          {followerProfiles.length > 0 && (
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
+                Followers · {followerProfiles.length}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {followerProfiles.map((p) => (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-3 rounded-sm bg-paper-raised border border-paper-line px-3 py-2"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <BeltChip belt={p.belt} stripes={p.stripes} />
+                      <span className="text-sm text-ink truncate">
+                        {p.display_name}
+                      </span>
+                    </div>
+                    <form action={removeFollower}>
+                      <input type="hidden" name="user_id" value={p.id} />
+                      <button type="submit" className={btnGhost}>
+                        Remove
+                      </button>
+                    </form>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         {/* RIGHT: feed */}
@@ -188,37 +301,93 @@ export default async function FeedPage({
   );
 }
 
+// Instagram-style account privacy. Public: anyone can follow instantly.
+// Private: follows become requests you approve.
+function PrivacyCard({ isPrivate }: { isPrivate: boolean }) {
+  return (
+    <div className="rounded-sm bg-paper-raised border border-paper-line p-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
+            Your account
+          </p>
+          <p className="mt-1 text-sm text-ink">
+            {isPrivate ? "Private" : "Public"}
+          </p>
+        </div>
+        <form action={setAccountPrivacy}>
+          <input
+            type="hidden"
+            name="is_private"
+            value={isPrivate ? "false" : "true"}
+          />
+          <button type="submit" className={btnGhost}>
+            {isPrivate ? "Switch to public" : "Switch to private"}
+          </button>
+        </form>
+      </div>
+      <p className="mt-2 text-xs text-ink-mute leading-relaxed">
+        {isPrivate
+          ? "New followers must request to follow you and see your sessions. Existing followers keep access."
+          : "Anyone can follow you and see your sessions in their feed."}
+      </p>
+    </div>
+  );
+}
+
 function PersonRow({
   profile,
-  isFollowing,
+  state,
+  showPrivacy = false,
 }: {
   profile: Profile;
-  isFollowing: boolean;
+  state: FollowState;
+  showPrivacy?: boolean;
 }) {
   return (
     <li className="flex items-center justify-between gap-3 rounded-sm bg-paper-raised border border-paper-line px-3 py-2">
-      <div className="flex items-center gap-3 min-w-0">
+      <div className="flex items-center gap-2 min-w-0">
         <BeltChip belt={profile.belt} stripes={profile.stripes} />
         <span className="text-sm text-ink truncate">
           {profile.display_name}
         </span>
+        {showPrivacy && profile.is_private && (
+          <span className="font-mono text-[9px] uppercase tracking-dojo px-1.5 py-0.5 rounded-sm border border-paper-line text-ink-mute flex-shrink-0">
+            private
+          </span>
+        )}
       </div>
-      <form action={isFollowing ? unfollow : follow}>
-        <input type="hidden" name="user_id" value={profile.id} />
-        <button
-          type="submit"
-          className={
-            isFollowing
-              ? "font-mono text-[10px] uppercase tracking-dojo px-2.5 py-1 rounded-sm border border-paper-line text-ink-dim hover:border-accent hover:text-accent transition"
-              : "font-mono text-[10px] uppercase tracking-dojo px-2.5 py-1 rounded-sm bg-accent text-paper hover:bg-accent-deep transition"
-          }
-        >
-          {isFollowing ? "Unfollow" : "Follow"}
-        </button>
-      </form>
+      {state === "following" ? (
+        <form action={unfollow}>
+          <input type="hidden" name="user_id" value={profile.id} />
+          <button type="submit" className={btnGhost}>
+            Unfollow
+          </button>
+        </form>
+      ) : state === "requested" ? (
+        // Clicking cancels the pending request (same delete as unfollow).
+        <form action={unfollow}>
+          <input type="hidden" name="user_id" value={profile.id} />
+          <button type="submit" className={btnGhost}>
+            Requested
+          </button>
+        </form>
+      ) : (
+        <form action={follow}>
+          <input type="hidden" name="user_id" value={profile.id} />
+          <button type="submit" className={btnPrimary}>
+            Follow
+          </button>
+        </form>
+      )}
     </li>
   );
 }
+
+const btnPrimary =
+  "font-mono text-[10px] uppercase tracking-dojo px-2.5 py-1 rounded-sm bg-accent text-paper hover:bg-accent-deep transition";
+const btnGhost =
+  "font-mono text-[10px] uppercase tracking-dojo px-2.5 py-1 rounded-sm border border-paper-line text-ink-dim hover:border-accent hover:text-accent transition";
 
 function BeltChip({ belt, stripes }: { belt: Belt; stripes: number }) {
   return (
