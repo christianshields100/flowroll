@@ -1,18 +1,13 @@
 // Shared header + container for signed-in routes (/dashboard, /log, /feed).
 import Link from "next/link";
+import { Avatar } from "@/components/Avatar";
 
 type Profile = {
+  id?: string;
   display_name: string;
   belt: "white" | "blue" | "purple" | "brown" | "black";
   stripes: number;
-};
-
-const BELT_BG: Record<Profile["belt"], string> = {
-  white: "bg-belt-white",
-  blue: "bg-belt-blue",
-  purple: "bg-belt-purple",
-  brown: "bg-belt-brown",
-  black: "bg-belt-black",
+  avatar_url?: string | null;
 };
 
 export function AppShell({
@@ -54,25 +49,36 @@ export function AppShell({
           </nav>
 
           <div className="flex items-center gap-3">
-            {profile && (
-              <span className="hidden sm:flex items-center gap-2">
-                <span
-                  aria-hidden
-                  className={`block h-3 w-6 ${BELT_BG[profile.belt]} rounded-[1px] relative overflow-hidden`}
+            {profile &&
+              (profile.id ? (
+                <Link
+                  href={`/u/${profile.id}`}
+                  className="flex items-center gap-2 group"
+                  title="Your profile"
                 >
-                  {Array.from({ length: profile.stripes }).map((_, i) => (
-                    <span
-                      key={i}
-                      className="absolute top-0 bottom-0 w-[3px] bg-belt-stripe/95"
-                      style={{ right: `${4 + i * 5}px` }}
-                    />
-                  ))}
+                  <Avatar
+                    url={profile.avatar_url}
+                    name={profile.display_name}
+                    belt={profile.belt}
+                    size="sm"
+                  />
+                  <span className="hidden sm:inline font-mono text-xs text-ink-dim group-hover:text-accent transition">
+                    {profile.display_name}
+                  </span>
+                </Link>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Avatar
+                    url={profile.avatar_url}
+                    name={profile.display_name}
+                    belt={profile.belt}
+                    size="sm"
+                  />
+                  <span className="hidden sm:inline font-mono text-xs text-ink-dim">
+                    {profile.display_name}
+                  </span>
                 </span>
-                <span className="font-mono text-xs text-ink-dim">
-                  {profile.display_name}
-                </span>
-              </span>
-            )}
+              ))}
             <form action="/auth/signout" method="post">
               <button
                 type="submit"

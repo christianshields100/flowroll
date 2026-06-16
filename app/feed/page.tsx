@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
+import { Avatar } from "@/components/Avatar";
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
 import {
   acceptFollowRequest,
@@ -17,6 +18,7 @@ type Profile = {
   belt: Belt;
   stripes: number;
   is_private?: boolean;
+  avatar_url?: string | null;
 };
 // What the signed-in user's relationship to a profile is.
 type FollowState = "following" | "requested" | "none";
@@ -42,7 +44,7 @@ export default async function FeedPage({
 
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("display_name, belt, stripes, is_private")
+    .select("id, display_name, belt, stripes, is_private, avatar_url")
     .eq("id", me)
     .single();
 
@@ -79,7 +81,7 @@ export default async function FeedPage({
   const { data: knownProfilesData } = neededIds.length
     ? await supabase
         .from("profiles")
-        .select("id, display_name, belt, stripes, is_private")
+        .select("id, display_name, belt, stripes, is_private, avatar_url")
         .in("id", neededIds)
     : { data: [] as Profile[] };
   const profileById = new Map(
@@ -102,7 +104,7 @@ export default async function FeedPage({
   if (q) {
     const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, belt, stripes, is_private")
+      .select("id, display_name, belt, stripes, is_private, avatar_url")
       .ilike("display_name", `%${q}%`)
       .neq("id", me)
       .limit(10);
@@ -159,9 +161,12 @@ export default async function FeedPage({
                       href={`/u/${p.id}`}
                       className="flex items-center gap-3 min-w-0 group"
                     >
-                      <BeltChip belt={p.belt} stripes={p.stripes} />
-                      <span className="text-sm text-ink truncate group-hover:text-accent transition">
-                        {p.display_name}
+                      <Avatar url={p.avatar_url} name={p.display_name} belt={p.belt} size="sm" />
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm text-ink truncate group-hover:text-accent transition">
+                          {p.display_name}
+                        </span>
+                        <BeltChip belt={p.belt} stripes={p.stripes} />
                       </span>
                     </Link>
                     <span className="flex items-center gap-2">
@@ -256,9 +261,12 @@ export default async function FeedPage({
                       href={`/u/${p.id}`}
                       className="flex items-center gap-3 min-w-0 group"
                     >
-                      <BeltChip belt={p.belt} stripes={p.stripes} />
-                      <span className="text-sm text-ink truncate group-hover:text-accent transition">
-                        {p.display_name}
+                      <Avatar url={p.avatar_url} name={p.display_name} belt={p.belt} size="sm" />
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-sm text-ink truncate group-hover:text-accent transition">
+                          {p.display_name}
+                        </span>
+                        <BeltChip belt={p.belt} stripes={p.stripes} />
                       </span>
                     </Link>
                     <form action={removeFollower}>
@@ -357,10 +365,11 @@ function PersonRow({
         href={`/u/${profile.id}`}
         className="flex items-center gap-2 min-w-0 group"
       >
-        <BeltChip belt={profile.belt} stripes={profile.stripes} />
+        <Avatar url={profile.avatar_url} name={profile.display_name} belt={profile.belt} size="sm" />
         <span className="text-sm text-ink truncate group-hover:text-accent transition">
           {profile.display_name}
         </span>
+        <BeltChip belt={profile.belt} stripes={profile.stripes} />
         {showPrivacy && profile.is_private && (
           <span className="font-mono text-[9px] uppercase tracking-dojo px-1.5 py-0.5 rounded-sm border border-paper-line text-ink-mute flex-shrink-0">
             private
@@ -437,7 +446,7 @@ function SessionCard({
               href={`/u/${session.user_id}`}
               className="flex items-center gap-3 min-w-0 group"
             >
-              <BeltChip belt={author.belt} stripes={author.stripes} />
+              <Avatar url={author.avatar_url} name={author.display_name} belt={author.belt} size="sm" />
               <span className="font-display text-base tracking-tightish truncate group-hover:text-accent transition">
                 {author.display_name}
               </span>

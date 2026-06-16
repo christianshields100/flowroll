@@ -30,6 +30,10 @@ create index if not exists profiles_display_name_trgm
 alter table public.profiles
   add column if not exists is_private boolean not null default false;
 
+-- v4: profile photo (public URL into the `avatars` storage bucket below).
+alter table public.profiles
+  add column if not exists avatar_url text;
+
 ------------------------------------------------------------
 -- sessions
 ------------------------------------------------------------
@@ -169,6 +173,123 @@ begin
   return daily_limit - used;
 end;
 $$;
+
+------------------------------------------------------------
+-- Follow graph helpers (v4). The follows table is RLS-gated to rows where the
+-- caller is involved, so to show counts/lists for OTHER profiles we go through
+-- SECURITY DEFINER functions that apply the privacy rules themselves.
+------------------------------------------------------------
+
+-- Accepted follower / following counts for any profile (counts are public,
+-- Instagram-style). Definer so it can see edges the caller isn't part of.
+create or replace function public.profile_follow_counts(target uuid)
+returns table(followers integer, following integer)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    (select count(*)::int from public.follows
+       where followee_id = target and status = 'accepted'),
+    (select count(*)::int from public.follows
+       where follower_id = target and status = 'accepted');
+$$;
+
+-- Can the caller open `target`'s follower/following LISTS? Yes if it's their
+-- own profile, the target is public, or they're an accepted follower.
+create or replace function public.can_view_follow_lists(target uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    target = auth.uid()
+    or exists (select 1 from public.profiles p
+                 where p.id = target and p.is_private = false)
+    or exists (select 1 from public.follows f
+                 where f.follower_id = auth.uid()
+                   and f.followee_id = target
+                   and f.status = 'accepted');
+$$;
+
+-- Accepted followers of `target` (the people who follow them).
+create or replace function public.profile_followers(target uuid)
+returns setof public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.can_view_follow_lists(target) then
+    return;
+  end if;
+  return query
+    select p.* from public.profiles p
+    join public.follows f on f.follower_id = p.id
+    where f.followee_id = target and f.status = 'accepted'
+    order by f.created_at desc;
+end;
+$$;
+
+-- Accounts `target` follows.
+create or replace function public.profile_following(target uuid)
+returns setof public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or not public.can_view_follow_lists(target) then
+    return;
+  end if;
+  return query
+    select p.* from public.profiles p
+    join public.follows f on f.followee_id = p.id
+    where f.follower_id = target and f.status = 'accepted'
+    order by f.created_at desc;
+end;
+$$;
+
+------------------------------------------------------------
+-- avatars storage bucket (v4). Public read so <img> works without signed URLs;
+-- a user may only write into their own {user_id}/… folder.
+------------------------------------------------------------
+insert into storage.buckets (id, name, public)
+  values ('avatars', 'avatars', true)
+  on conflict (id) do nothing;
+
+drop policy if exists "avatars: public read" on storage.objects;
+create policy "avatars: public read"
+  on storage.objects for select
+  using (bucket_id = 'avatars');
+
+drop policy if exists "avatars: write own folder" on storage.objects;
+create policy "avatars: write own folder"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "avatars: update own folder" on storage.objects;
+create policy "avatars: update own folder"
+  on storage.objects for update
+  to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "avatars: delete own folder" on storage.objects;
+create policy "avatars: delete own folder"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
 
 ------------------------------------------------------------
 -- Profile auto-create on signup

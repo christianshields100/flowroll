@@ -2,9 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
+import { Avatar } from "@/components/Avatar";
 import { BeltChip, SessionCard, type Belt } from "@/components/SessionCard";
 import { formatHours, sessionTotals, type SessionRow } from "@/lib/stats";
 import { follow, unfollow } from "@/app/feed/actions";
+import { AvatarUploader } from "./AvatarUploader";
 
 export default async function ProfilePage({
   params,
@@ -19,22 +21,19 @@ export default async function ProfilePage({
 
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("display_name, belt, stripes")
+    .select("id, display_name, belt, stripes, avatar_url")
     .eq("id", me)
     .single();
 
-  // Target profile. Profiles are readable by all authenticated users (needed
-  // for discovery), so a missing row means the id is bogus → 404.
   const { data: target } = await supabase
     .from("profiles")
-    .select("id, display_name, belt, stripes, is_private")
+    .select("id, display_name, belt, stripes, is_private, avatar_url")
     .eq("id", params.id)
     .maybeSingle();
   if (!target) notFound();
 
   const isMe = target.id === me;
 
-  // My relationship to them.
   let followState: "following" | "requested" | "none" = "none";
   if (!isMe) {
     const { data: rel } = await supabase
@@ -50,8 +49,15 @@ export default async function ProfilePage({
       : "none";
   }
 
-  // Can I see their sessions? Mirrors the RLS rule: mine, or public, or an
-  // accepted follow. If locked, we don't even run the query.
+  // Follower / following counts (definer RPC — works for any profile).
+  const { data: countRows } = await supabase.rpc("profile_follow_counts", {
+    target: target.id,
+  });
+  const counts = (countRows?.[0] ?? { followers: 0, following: 0 }) as {
+    followers: number;
+    following: number;
+  };
+
   const canView = isMe || !target.is_private || followState === "following";
 
   let rows: SessionRow[] = [];
@@ -79,28 +85,67 @@ export default async function ProfilePage({
 
       {/* Header */}
       <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <BeltChip belt={target.belt as Belt} stripes={target.stripes} size="lg" />
+        <div className="flex items-center gap-5">
+          <Avatar
+            url={target.avatar_url}
+            name={target.display_name}
+            belt={target.belt as Belt}
+            size="lg"
+          />
           <div>
             <h1 className="font-display text-3xl tracking-tightish">
               {target.display_name}
             </h1>
-            <p className="mt-1 font-mono text-[11px] uppercase tracking-dojo text-ink-mute">
-              {target.belt} belt
-              {target.stripes ? ` · ${target.stripes} stripe${target.stripes > 1 ? "s" : ""}` : ""}
-              {target.is_private ? " · private" : ""}
-            </p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <BeltChip belt={target.belt as Belt} stripes={target.stripes} />
+              <span className="font-mono text-[11px] uppercase tracking-dojo text-ink-mute">
+                {target.belt} belt
+                {target.stripes
+                  ? ` · ${target.stripes} stripe${target.stripes > 1 ? "s" : ""}`
+                  : ""}
+                {target.is_private ? " · private" : ""}
+              </span>
+            </div>
+
+            {/* Follower / following counts — clickable, Instagram-style */}
+            <div className="mt-3 flex items-center gap-5">
+              <Link
+                href={`/u/${target.id}/followers`}
+                className="group flex items-baseline gap-1.5"
+              >
+                <span className="font-mono text-base num text-ink group-hover:text-accent transition">
+                  {counts.followers}
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
+                  {counts.followers === 1 ? "follower" : "followers"}
+                </span>
+              </Link>
+              <Link
+                href={`/u/${target.id}/following`}
+                className="group flex items-baseline gap-1.5"
+              >
+                <span className="font-mono text-base num text-ink group-hover:text-accent transition">
+                  {counts.following}
+                </span>
+                <span className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
+                  following
+                </span>
+              </Link>
+            </div>
           </div>
         </div>
 
-        <div className="self-center">
+        <div className="self-center flex flex-col items-end gap-2">
           {isMe ? (
-            <Link
-              href="/dashboard"
-              className="font-mono text-[10px] uppercase tracking-dojo px-3 py-1.5 rounded-sm border border-paper-line text-ink-dim hover:border-accent hover:text-accent transition"
-            >
-              Your dashboard
-            </Link>
+            <>
+              <AvatarUploader uid={me} />
+              <Link
+                href="/dashboard"
+                className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition"
+              >
+                Your dashboard →
+              </Link>
+            </>
           ) : followState === "following" ? (
             <form action={unfollow}>
               <input type="hidden" name="user_id" value={target.id} />
@@ -128,7 +173,6 @@ export default async function ProfilePage({
 
       <div className="belt-rule mt-6 max-w-sm" />
 
-      {/* Stats (only when viewable) */}
       {canView && totals && (
         <div className="mt-8 grid grid-cols-3 gap-4 max-w-md">
           <Stat label="Sessions" value={`${totals.total_sessions}`} />
@@ -137,7 +181,6 @@ export default async function ProfilePage({
         </div>
       )}
 
-      {/* Body */}
       <div className="mt-8">
         {!canView ? (
           <div className="rounded-sm bg-paper-raised border border-paper-line p-8 max-w-xl text-center">
