@@ -8,7 +8,8 @@ Built for one user first, but multi-user from day one.
 ## Stack
 
 - **Next.js 14** (App Router) + TypeScript
-- **Supabase** — Postgres + magic-link & Google auth + Row-Level Security
+- **Supabase** — Postgres + magic-link & Google auth + Row-Level Security +
+  Storage (the `avatars` bucket for profile photos)
 - **`@supabase/ssr`** for browser / server / middleware clients
 - **Recharts** for the dashboard charts
 - **Anthropic SDK** (Claude) for the Coach chatbot and weekly recaps
@@ -65,11 +66,13 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   in search (so people can request), but a private account's sessions are
   hidden from everyone who isn't an accepted follower — enforced in Postgres
   RLS, not app code.
-- **`/u/[id]`** — public profile pages. Click any name in the feed to see their
-  belt, session/mat-time/rounds stats, and recent sessions. A private account
-  viewed by a non-follower shows a locked state (name + belt only, "follow to
-  see their sessions") — enforced by RLS. Your own profile links to your
-  dashboard.
+- **`/u/[id]`** — profile pages. Avatar (upload your own photo to Supabase
+  Storage, or a generated monogram until you do), belt rank, clickable
+  follower / following counts that open `/u/[id]/followers` and `/following`
+  list pages, session/mat-time/rounds stats, and recent sessions. Reach your
+  own profile from the header avatar. A private account viewed by a non-follower
+  shows a locked state and locked lists — enforced by RLS + SECURITY DEFINER
+  functions, not page code.
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
   your notes and full log history. Scope-locked to BJJ and your own data — it
   declines anything off-topic. Conversations persist across reloads, render
