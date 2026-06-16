@@ -27,6 +27,8 @@ function parseSessionFields(formData: FormData):
   const rounds = Number(formData.get("rounds"));
   const feel = Number(formData.get("feel"));
   const gym = (formData.get("gym") ?? "").toString().trim() || null;
+  const gym_place_id =
+    (formData.get("gym_place_id") ?? "").toString().trim() || null;
   const drilled = (formData.get("drilled") ?? "").toString().trim() || null;
   const note = (formData.get("note") ?? "").toString().trim() || null;
   const subs_hit = parseSubs(formData.get("subs_hit"));
@@ -54,6 +56,7 @@ function parseSessionFields(formData: FormData):
       rounds,
       feel,
       gym,
+      gym_place_id,
       drilled,
       note,
       subs_hit,

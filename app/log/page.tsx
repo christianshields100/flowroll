@@ -16,7 +16,9 @@ export default async function LogPage({
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, display_name, belt, stripes, avatar_url")
+    .select(
+      "id, display_name, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
+    )
     .eq("id", user!.id)
     .single();
 
@@ -24,12 +26,18 @@ export default async function LogPage({
   // submission names, and previously-logged partners.
   const { data: pastSessions } = await supabase
     .from("sessions")
-    .select("gym, subs_hit, subs_caught_in, partners")
+    .select("gym, gym_place_id, subs_hit, subs_caught_in, partners")
     .eq("user_id", user!.id)
     .order("trained_on", { ascending: false })
     .limit(200);
 
   const past = pastSessions ?? [];
+
+  // Default the gym to your last logged gym, else your home gym.
+  const lastWithGym = past.find((s) => s.gym);
+  const defaultGym = lastWithGym?.gym ?? profile?.home_gym_name ?? null;
+  const defaultGymPlaceId =
+    lastWithGym?.gym_place_id ?? profile?.home_gym_place_id ?? null;
   const pastSubs = past.flatMap((s) => [
     ...(s.subs_hit ?? []),
     ...(s.subs_caught_in ?? []),
@@ -69,7 +77,7 @@ export default async function LogPage({
     const { data } = await supabase
       .from("sessions")
       .select(
-        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at",
+        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, gym_place_id, drilled, note, created_at",
       )
       .eq("id", searchParams.edit)
       .eq("user_id", user!.id)
@@ -90,7 +98,8 @@ export default async function LogPage({
       <div className="mt-10">
         <LogForm
           key={editSession?.id ?? "new"}
-          defaultGym={past[0]?.gym ?? null}
+          defaultGym={defaultGym}
+          defaultGymPlaceId={defaultGymPlaceId}
           subSuggestions={subSuggestions}
           partnerSuggestions={partnerSuggestions}
           editSession={editSession}

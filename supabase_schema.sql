@@ -34,6 +34,12 @@ alter table public.profiles
 alter table public.profiles
   add column if not exists avatar_url text;
 
+-- v5: home gym, standardized on a Google Places place_id so analytics can
+-- group across users (home_gym_name is just the display label).
+alter table public.profiles
+  add column if not exists home_gym_place_id text,
+  add column if not exists home_gym_name text;
+
 ------------------------------------------------------------
 -- sessions
 ------------------------------------------------------------
@@ -60,6 +66,14 @@ create index if not exists sessions_user_trained_on_idx
 -- without accounts can be logged too.
 alter table public.sessions
   add column if not exists partners text[] not null default '{}';
+
+-- v5: standardized gym. `gym` stays the display name (now the place's name);
+-- `gym_place_id` is the Google Places canonical id for cross-gym analytics.
+alter table public.sessions
+  add column if not exists gym_place_id text;
+
+create index if not exists sessions_gym_place_id_idx
+  on public.sessions (gym_place_id);
 
 ------------------------------------------------------------
 -- follows

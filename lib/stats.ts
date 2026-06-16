@@ -10,6 +10,7 @@ export type SessionRow = {
   partners: string[];
   feel: number;
   gym: string | null;
+  gym_place_id?: string | null;
   drilled: string | null;
   note: string | null;
   created_at: string;

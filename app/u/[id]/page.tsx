@@ -7,6 +7,7 @@ import { BeltChip, SessionCard, type Belt } from "@/components/SessionCard";
 import { formatHours, sessionTotals, type SessionRow } from "@/lib/stats";
 import { follow, unfollow } from "@/app/feed/actions";
 import { AvatarUploader } from "./AvatarUploader";
+import { HomeGymEditor } from "./HomeGymEditor";
 
 export default async function ProfilePage({
   params,
@@ -27,7 +28,9 @@ export default async function ProfilePage({
 
   const { data: target } = await supabase
     .from("profiles")
-    .select("id, display_name, belt, stripes, is_private, avatar_url")
+    .select(
+      "id, display_name, belt, stripes, is_private, avatar_url, home_gym_name, home_gym_place_id",
+    )
     .eq("id", params.id)
     .maybeSingle();
   if (!target) notFound();
@@ -107,6 +110,15 @@ export default async function ProfilePage({
               </span>
             </div>
 
+            {target.home_gym_name && (
+              <p className="mt-1.5 font-mono text-[11px] text-ink-dim">
+                <span className="uppercase tracking-dojo text-ink-mute">
+                  Home gym
+                </span>{" "}
+                · {target.home_gym_name}
+              </p>
+            )}
+
             {/* Follower / following counts — clickable, Instagram-style */}
             <div className="mt-3 flex items-center gap-5">
               <Link
@@ -172,6 +184,23 @@ export default async function ProfilePage({
       </div>
 
       <div className="belt-rule mt-6 max-w-sm" />
+
+      {isMe && (
+        <div className="mt-8">
+          <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
+            Home gym
+          </p>
+          <p className="mt-1 text-sm text-ink-mute">
+            Pick from the list so it&apos;s standardized across the app.
+          </p>
+          <div className="mt-3">
+            <HomeGymEditor
+              name={target.home_gym_name}
+              placeId={target.home_gym_place_id}
+            />
+          </div>
+        </div>
+      )}
 
       {canView && totals && (
         <div className="mt-8 grid grid-cols-3 gap-4 max-w-md">

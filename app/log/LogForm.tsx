@@ -4,6 +4,7 @@ import { useFormState, useFormStatus } from "react-dom";
 import { useEffect, useRef, useState } from "react";
 import type { SessionRow } from "@/lib/stats";
 import { TagInput } from "@/components/TagInput";
+import { GymPicker } from "@/components/GymPicker";
 import { logSession, updateSession, type LogActionState } from "./actions";
 
 const initialState: LogActionState = { status: "idle" };
@@ -17,11 +18,13 @@ function todayISO() {
 
 export function LogForm({
   defaultGym,
+  defaultGymPlaceId,
   subSuggestions,
   partnerSuggestions,
   editSession = null,
 }: {
   defaultGym: string | null;
+  defaultGymPlaceId: string | null;
   subSuggestions: string[];
   partnerSuggestions: string[];
   // When set, the form edits this session instead of creating a new one.
@@ -83,13 +86,16 @@ export function LogForm({
         </Field>
       </div>
 
-      <Field label="Gym">
-        <input
-          type="text"
-          name="gym"
-          defaultValue={editSession ? (editSession.gym ?? "") : (defaultGym ?? "")}
-          placeholder="Where you trained"
-          className={inputCls}
+      <Field label="Gym" hint="Pick from the list to standardize it" asDiv>
+        <GymPicker
+          key={editSession?.id ?? "new"}
+          initialName={editSession ? (editSession.gym ?? "") : (defaultGym ?? "")}
+          initialPlaceId={
+            editSession
+              ? (editSession.gym_place_id ?? "")
+              : (defaultGymPlaceId ?? "")
+          }
+          placeholder="Where you trained — start typing…"
         />
       </Field>
 
