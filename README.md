@@ -1,7 +1,7 @@
 # FlowRoll
 
 A BJJ training log. Log what you rolled, watch your mat time and submissions
-trend, follow training partners and see what they're doing.
+trend, get feedback from an AI coach, follow training partners and see what they're doing.
 
 Built for one user first, but multi-user from day one.
 
