@@ -57,8 +57,10 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   a canonical list plus your own past entries, so names stay normalized. The
   **gym** uses a map-search autocomplete (`GymPicker`, backed by the free
   OpenStreetMap/Photon geocoder via `/api/gyms/search`) and stores the place's
-  OSM id so gyms are standardized for cross-gym analytics; free-text still works
-  for anything not on the map. `/log?edit=<id>` reuses the same form.
+  OSM id so gyms are standardized for cross-gym analytics. It asks for your
+  location (best-effort) to rank nearby academies first, and there's always a
+  "Use '…'" option so gyms not on the map can be saved as free text.
+  `/log?edit=<id>` reuses the same form.
 - **`/dashboard`** — streak, lifetime totals, a Daily / Weekly / Monthly toggle
   over the mat-time, rounds, and feel-vs-volume charts (last 14 days / 8 weeks /
   6 months), submission ledger (hit vs caught-in toggle), top training partners,

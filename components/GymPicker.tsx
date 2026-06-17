@@ -35,9 +35,27 @@ export function GymPicker({
   const [loading, setLoading] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [highlight, setHighlight] = useState(0);
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(
+    null,
+  );
+  const askedGeo = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
-  // Debounced search (min 3 chars).
+  // Ask the browser for location once so we can rank nearby gyms first. Purely
+  // best-effort: if the user declines or it's unavailable, search runs unbiased.
+  function ensureGeo() {
+    if (askedGeo.current || !navigator?.geolocation) return;
+    askedGeo.current = true;
+    navigator.geolocation.getCurrentPosition(
+      (pos) =>
+        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => {},
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 600_000 },
+    );
+  }
+
+  // Debounced search (min 3 chars). Re-runs when coords arrive so the current
+  // query gets re-ranked by proximity.
   useEffect(() => {
     const q = query.trim();
     if (q.length < 3) {
@@ -49,7 +67,10 @@ export function GymPicker({
     setLoading(true);
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/gyms/search?q=${encodeURIComponent(q)}`);
+        const loc = coords ? `&lat=${coords.lat}&lon=${coords.lon}` : "";
+        const res = await fetch(
+          `/api/gyms/search?q=${encodeURIComponent(q)}${loc}`,
+        );
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         if (res.status === 503) {
@@ -69,7 +90,7 @@ export function GymPicker({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [query]);
+  }, [query, coords]);
 
   useEffect(() => setHighlight(0), [results.length]);
 
@@ -162,7 +183,10 @@ export function GymPicker({
               setQuery(e.target.value);
               setOpen(true);
             }}
-            onFocus={() => setOpen(true)}
+            onFocus={() => {
+              setOpen(true);
+              ensureGeo();
+            }}
             onKeyDown={onKeyDown}
             placeholder={placeholder}
             className={inputCls}

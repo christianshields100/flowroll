@@ -1,8 +1,9 @@
-// GET /api/gyms/search?q=... — gym autocomplete.
+// GET /api/gyms/search?q=...&lat=...&lon=... — gym autocomplete.
 // Backed by Photon (https://photon.komoot.io), a free OpenStreetMap geocoder
 // built for type-ahead — no API key, no billing. Standardization comes from the
 // OSM id (osm_type + osm_id), which is stable per place, so the same gym groups
-// together across users for analytics. Auth-gated so it isn't an open proxy.
+// together across users for analytics. Optional lat/lon bias ranking toward the
+// user so nearby gyms come first. Auth-gated so it isn't an open proxy.
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -32,11 +33,26 @@ export async function GET(request: Request) {
     return Response.json({ error: "Not signed in." }, { status: 401 });
   }
 
-  const q = new URL(request.url).searchParams.get("q")?.trim() ?? "";
+  const params = new URL(request.url).searchParams;
+  const q = params.get("q")?.trim() ?? "";
   if (q.length < 3) return Response.json({ suggestions: [] });
 
+  // Optional location bias: when the client shares the user's coordinates,
+  // Photon ranks nearby gyms first (so your own academy beats a same-named one
+  // across the world). location_bias_scale 0.3 is a moderate pull toward you.
+  const lat = Number(params.get("lat"));
+  const lon = Number(params.get("lon"));
+  const hasLoc =
+    Number.isFinite(lat) &&
+    Number.isFinite(lon) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lon) <= 180;
+  const biasQs = hasLoc
+    ? `&lat=${lat}&lon=${lon}&location_bias_scale=0.3`
+    : "";
+
   try {
-    const url = `${PHOTON_URL}?q=${encodeURIComponent(q)}&limit=10${GYM_TAG_QS}`;
+    const url = `${PHOTON_URL}?q=${encodeURIComponent(q)}&limit=10${GYM_TAG_QS}${biasQs}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "FlowRoll/1.0 (BJJ training log)" },
     });
