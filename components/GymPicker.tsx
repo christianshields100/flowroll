@@ -204,6 +204,11 @@ export function GymPicker({
                   &ldquo;{query.trim()}&rdquo; as text.
                 </li>
               )}
+              {coords && results.length > 0 && (
+                <li className="px-3 pt-2 pb-1 font-mono text-[9px] uppercase tracking-dojo text-ink-mute">
+                  Sorted by distance
+                </li>
+              )}
               {results.map((s, i) => (
                 <li key={s.placeId}>
                   <button

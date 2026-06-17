@@ -64,7 +64,13 @@ export default async function DashboardPage() {
       <h1 className="mt-2 font-display text-4xl tracking-tightish">
         {empty
           ? "Step on the mat."
-          : `Welcome to the mat${profile?.display_name ? `, ${profile.display_name}` : ""}.`}
+          : `Welcome to the mat${
+              profile?.first_name?.trim()
+                ? `, ${profile.first_name.trim()}`
+                : profile?.display_name
+                  ? `, ${profile.display_name}`
+                  : ""
+            }.`}
       </h1>
       <div className="belt-rule mt-6 max-w-sm" />
 
