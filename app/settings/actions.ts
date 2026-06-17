@@ -6,8 +6,9 @@ import { createClient } from "@/lib/supabase/server";
 
 const BELTS = ["white", "blue", "purple", "brown", "black"];
 
-// Save the Edit Profile form (name, DoB, belt, stripes). Photo and home gym
-// are their own components/actions.
+// Save the whole Edit Profile form in one shot — name, DoB, belt, stripes, and
+// home gym — so the page has a single Save button and sections can't clobber
+// each other. (Photo uploads straight to storage via its own component.)
 export async function updateProfile(formData: FormData) {
   const supabase = createClient();
   const {
@@ -24,10 +25,22 @@ export async function updateProfile(formData: FormData) {
     4,
     Math.max(0, Math.floor(Number(formData.get("stripes")) || 0)),
   );
+  const homeGymName =
+    (formData.get("home_gym_name") ?? "").toString().trim() || null;
+  const homeGymPlaceId =
+    (formData.get("home_gym_place_id") ?? "").toString().trim() || null;
 
   await supabase
     .from("profiles")
-    .update({ first_name: first, last_name: last, dob, belt, stripes })
+    .update({
+      first_name: first,
+      last_name: last,
+      dob,
+      belt,
+      stripes,
+      home_gym_name: homeGymName,
+      home_gym_place_id: homeGymPlaceId,
+    })
     .eq("id", user.id);
 
   revalidatePath(`/u/${user.id}`);

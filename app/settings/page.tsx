@@ -3,9 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { Avatar } from "@/components/Avatar";
 import { BeltStripePicker } from "@/components/BeltStripePicker";
+import { GymPicker } from "@/components/GymPicker";
 import { displayName } from "@/lib/profile";
 import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
-import { HomeGymEditor } from "@/app/u/[id]/HomeGymEditor";
 import { updateProfile } from "./actions";
 
 const inputCls =
@@ -93,6 +93,20 @@ export default async function SettingsPage() {
           />
         </Field>
 
+        <Field
+          label="Home gym"
+          hint="Sorted by distance once you allow location"
+          asDiv
+        >
+          <GymPicker
+            nameField="home_gym_name"
+            placeIdField="home_gym_place_id"
+            initialName={profile?.home_gym_name ?? ""}
+            initialPlaceId={profile?.home_gym_place_id ?? ""}
+            placeholder="Set your home gym — start typing…"
+          />
+        </Field>
+
         <button
           type="submit"
           className="bg-accent text-paper px-6 py-3 rounded-sm font-medium hover:bg-accent-deep transition"
@@ -100,22 +114,6 @@ export default async function SettingsPage() {
           Save changes
         </button>
       </form>
-
-      {/* Home gym */}
-      <section className="mt-12 max-w-2xl">
-        <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-          Home gym
-        </p>
-        <p className="mt-1 text-sm text-ink-mute">
-          Pick from the list so it&apos;s standardized across the app.
-        </p>
-        <div className="mt-3">
-          <HomeGymEditor
-            name={profile?.home_gym_name ?? null}
-            placeId={profile?.home_gym_place_id ?? null}
-          />
-        </div>
-      </section>
     </AppShell>
   );
 }
