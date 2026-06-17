@@ -6,8 +6,7 @@ import { Avatar } from "@/components/Avatar";
 import { BeltChip, SessionCard, type Belt } from "@/components/SessionCard";
 import { formatHours, sessionTotals, type SessionRow } from "@/lib/stats";
 import { follow, unfollow } from "@/app/feed/actions";
-import { AvatarUploader } from "./AvatarUploader";
-import { HomeGymEditor } from "./HomeGymEditor";
+import { displayName, hasFullName } from "@/lib/profile";
 
 export default async function ProfilePage({
   params,
@@ -22,14 +21,14 @@ export default async function ProfilePage({
 
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("id, display_name, belt, stripes, avatar_url")
+    .select("id, display_name, first_name, last_name, belt, stripes, avatar_url")
     .eq("id", me)
     .single();
 
   const { data: target } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, belt, stripes, is_private, avatar_url, home_gym_name, home_gym_place_id",
+      "id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url, home_gym_name, home_gym_place_id",
     )
     .eq("id", params.id)
     .maybeSingle();
@@ -91,14 +90,19 @@ export default async function ProfilePage({
         <div className="flex items-center gap-5">
           <Avatar
             url={target.avatar_url}
-            name={target.display_name}
+            name={displayName(target)}
             belt={target.belt as Belt}
             size="lg"
           />
           <div>
             <h1 className="font-display text-3xl tracking-tightish">
-              {target.display_name}
+              {displayName(target)}
             </h1>
+            {hasFullName(target) && (
+              <p className="font-mono text-sm text-ink-mute">
+                @{target.display_name}
+              </p>
+            )}
             <div className="mt-1.5 flex items-center gap-2">
               <BeltChip belt={target.belt as Belt} stripes={target.stripes} />
               <span className="font-mono text-[11px] uppercase tracking-dojo text-ink-mute">
@@ -150,7 +154,9 @@ export default async function ProfilePage({
         <div className="self-center flex flex-col items-end gap-2">
           {isMe ? (
             <>
-              <AvatarUploader uid={me} />
+              <Link href="/settings" className={btnGhost}>
+                Edit profile
+              </Link>
               <Link
                 href="/dashboard"
                 className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition"
@@ -184,23 +190,6 @@ export default async function ProfilePage({
       </div>
 
       <div className="belt-rule mt-6 max-w-sm" />
-
-      {isMe && (
-        <div className="mt-8">
-          <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-            Home gym
-          </p>
-          <p className="mt-1 text-sm text-ink-mute">
-            Pick from the list so it&apos;s standardized across the app.
-          </p>
-          <div className="mt-3">
-            <HomeGymEditor
-              name={target.home_gym_name}
-              placeId={target.home_gym_place_id}
-            />
-          </div>
-        </div>
-      )}
 
       {canView && totals && (
         <div className="mt-8 grid grid-cols-3 gap-4 max-w-md">

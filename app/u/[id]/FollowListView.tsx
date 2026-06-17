@@ -5,12 +5,15 @@ import { AppShell } from "@/components/AppShell";
 import { Avatar } from "@/components/Avatar";
 import { BeltChip, type Belt } from "@/components/SessionCard";
 import { follow, unfollow } from "@/app/feed/actions";
+import { displayName, hasFullName } from "@/lib/profile";
 
 type Kind = "followers" | "following";
 
 type Person = {
   id: string;
   display_name: string;
+  first_name: string | null;
+  last_name: string | null;
   belt: Belt;
   stripes: number;
   is_private: boolean;
@@ -32,7 +35,7 @@ export async function FollowListView({
 
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("id, display_name, belt, stripes, avatar_url")
+    .select("id, display_name, first_name, last_name, belt, stripes, avatar_url")
     .eq("id", me)
     .single();
 
@@ -117,13 +120,20 @@ export async function FollowListView({
                   >
                     <Avatar
                       url={p.avatar_url}
-                      name={p.display_name}
+                      name={displayName(p)}
                       belt={p.belt}
                       size="sm"
                     />
                     <span className="flex items-center gap-2 min-w-0">
-                      <span className="text-sm text-ink truncate group-hover:text-accent transition">
-                        {p.display_name}
+                      <span className="flex flex-col min-w-0">
+                        <span className="text-sm text-ink truncate group-hover:text-accent transition">
+                          {displayName(p)}
+                        </span>
+                        {hasFullName(p) && (
+                          <span className="font-mono text-[10px] text-ink-mute truncate">
+                            @{p.display_name}
+                          </span>
+                        )}
                       </span>
                       <BeltChip belt={p.belt} stripes={p.stripes} />
                     </span>

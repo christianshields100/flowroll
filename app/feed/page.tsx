@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { Avatar } from "@/components/Avatar";
+import { displayName } from "@/lib/profile";
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
 import {
   acceptFollowRequest,
@@ -15,6 +16,8 @@ type Belt = "white" | "blue" | "purple" | "brown" | "black";
 type Profile = {
   id: string;
   display_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
   belt: Belt;
   stripes: number;
   is_private?: boolean;
@@ -44,7 +47,7 @@ export default async function FeedPage({
 
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("id, display_name, belt, stripes, is_private, avatar_url")
+    .select("id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url")
     .eq("id", me)
     .single();
 
@@ -81,7 +84,7 @@ export default async function FeedPage({
   const { data: knownProfilesData } = neededIds.length
     ? await supabase
         .from("profiles")
-        .select("id, display_name, belt, stripes, is_private, avatar_url")
+        .select("id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url")
         .in("id", neededIds)
     : { data: [] as Profile[] };
   const profileById = new Map(
@@ -104,8 +107,10 @@ export default async function FeedPage({
   if (q) {
     const { data } = await supabase
       .from("profiles")
-      .select("id, display_name, belt, stripes, is_private, avatar_url")
-      .ilike("display_name", `%${q}%`)
+      .select("id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url")
+      .or(
+        `display_name.ilike.%${q}%,first_name.ilike.%${q}%,last_name.ilike.%${q}%`,
+      )
       .neq("id", me)
       .limit(10);
     searchResults = (data ?? []) as Profile[];
@@ -161,10 +166,10 @@ export default async function FeedPage({
                       href={`/u/${p.id}`}
                       className="flex items-center gap-3 min-w-0 group"
                     >
-                      <Avatar url={p.avatar_url} name={p.display_name} belt={p.belt} size="sm" />
+                      <Avatar url={p.avatar_url} name={displayName(p)} belt={p.belt} size="sm" />
                       <span className="flex items-center gap-2 min-w-0">
                         <span className="text-sm text-ink truncate group-hover:text-accent transition">
-                          {p.display_name}
+                          {displayName(p)}
                         </span>
                         <BeltChip belt={p.belt} stripes={p.stripes} />
                       </span>
@@ -261,10 +266,10 @@ export default async function FeedPage({
                       href={`/u/${p.id}`}
                       className="flex items-center gap-3 min-w-0 group"
                     >
-                      <Avatar url={p.avatar_url} name={p.display_name} belt={p.belt} size="sm" />
+                      <Avatar url={p.avatar_url} name={displayName(p)} belt={p.belt} size="sm" />
                       <span className="flex items-center gap-2 min-w-0">
                         <span className="text-sm text-ink truncate group-hover:text-accent transition">
-                          {p.display_name}
+                          {displayName(p)}
                         </span>
                         <BeltChip belt={p.belt} stripes={p.stripes} />
                       </span>
@@ -365,9 +370,9 @@ function PersonRow({
         href={`/u/${profile.id}`}
         className="flex items-center gap-2 min-w-0 group"
       >
-        <Avatar url={profile.avatar_url} name={profile.display_name} belt={profile.belt} size="sm" />
+        <Avatar url={profile.avatar_url} name={displayName(profile)} belt={profile.belt} size="sm" />
         <span className="text-sm text-ink truncate group-hover:text-accent transition">
-          {profile.display_name}
+          {displayName(profile)}
         </span>
         <BeltChip belt={profile.belt} stripes={profile.stripes} />
         {showPrivacy && profile.is_private && (
@@ -446,9 +451,9 @@ function SessionCard({
               href={`/u/${session.user_id}`}
               className="flex items-center gap-3 min-w-0 group"
             >
-              <Avatar url={author.avatar_url} name={author.display_name} belt={author.belt} size="sm" />
+              <Avatar url={author.avatar_url} name={displayName(author)} belt={author.belt} size="sm" />
               <span className="font-display text-base tracking-tightish truncate group-hover:text-accent transition">
-                {author.display_name}
+                {displayName(author)}
               </span>
             </Link>
           ) : (

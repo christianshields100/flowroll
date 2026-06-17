@@ -1,10 +1,13 @@
 // Shared header + container for signed-in routes (/dashboard, /log, /feed).
 import Link from "next/link";
 import { Avatar } from "@/components/Avatar";
+import { displayName } from "@/lib/profile";
 
 type Profile = {
   id?: string;
   display_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
   belt: "white" | "blue" | "purple" | "brown" | "black";
   stripes: number;
   avatar_url?: string | null;
@@ -58,24 +61,24 @@ export function AppShell({
                 >
                   <Avatar
                     url={profile.avatar_url}
-                    name={profile.display_name}
+                    name={displayName(profile)}
                     belt={profile.belt}
                     size="sm"
                   />
                   <span className="hidden sm:inline font-mono text-xs text-ink-dim group-hover:text-accent transition">
-                    {profile.display_name}
+                    {displayName(profile)}
                   </span>
                 </Link>
               ) : (
                 <span className="flex items-center gap-2">
                   <Avatar
                     url={profile.avatar_url}
-                    name={profile.display_name}
+                    name={displayName(profile)}
                     belt={profile.belt}
                     size="sm"
                   />
                   <span className="hidden sm:inline font-mono text-xs text-ink-dim">
-                    {profile.display_name}
+                    {displayName(profile)}
                   </span>
                 </span>
               ))}

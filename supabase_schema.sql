@@ -40,6 +40,14 @@ alter table public.profiles
   add column if not exists home_gym_place_id text,
   add column if not exists home_gym_name text;
 
+-- v6: real name (shown on the profile; display_name becomes the @handle),
+-- date of birth (collected at onboarding, never shown), and an onboarding flag.
+alter table public.profiles
+  add column if not exists first_name text,
+  add column if not exists last_name  text,
+  add column if not exists dob        date,
+  add column if not exists onboarded  boolean not null default false;
+
 ------------------------------------------------------------
 -- sessions
 ------------------------------------------------------------

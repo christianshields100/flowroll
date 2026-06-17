@@ -72,12 +72,24 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   hidden from everyone who isn't an accepted follower — enforced in Postgres
   RLS, not app code.
 - **`/u/[id]`** — profile pages. Avatar (upload your own photo to Supabase
-  Storage, or a generated monogram until you do), belt rank, clickable
+  Storage, or a generated monogram until you do), **full name** (first + last)
+  as the heading with `@username` as the handle underneath, belt rank, clickable
   follower / following counts that open `/u/[id]/followers` and `/following`
   list pages, session/mat-time/rounds stats, and recent sessions. Reach your
   own profile from the header avatar. A private account viewed by a non-follower
   shows a locked state and locked lists — enforced by RLS + SECURITY DEFINER
   functions, not page code.
+- **`/welcome`** — first-time setup wizard. New sign-ups are routed here by
+  middleware (the onboarding gate) until they finish: a three-step flow
+  collecting name + date of birth, belt + stripes, and an optional profile
+  photo. DoB is stored but **never shown** anywhere. Setting `onboarded = true`
+  lets them into the rest of the app.
+- **`/settings`** — edit profile: first / last name, belt + stripes (the
+  `BeltStripePicker`), private date of birth, profile photo, and home gym. Names
+  flow through `lib/profile.ts`'s `displayName()` helper, which shows the full
+  name everywhere a person appears (profiles, feed, follower / following lists,
+  the header) and falls back to `@username` when no name is set. Search matches
+  on username, first name, or last name.
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
   your notes and full log history. Scope-locked to BJJ and your own data — it
   declines anything off-topic. Conversations persist across reloads, render
@@ -103,7 +115,11 @@ These are out of scope so we can ship. Tracked for later:
 ## Architecture notes
 
 - **Auth lives in middleware.** Every request to `/dashboard`, `/log`, `/feed`,
-  `/chat` refreshes the session and gates unauthenticated users back to `/login`.
+  `/chat`, `/u`, `/settings` refreshes the session and gates unauthenticated
+  users back to `/login`. The same middleware runs the **onboarding gate**: a
+  signed-in user whose `onboarded` flag is false is redirected to `/welcome`,
+  and an already-onboarded user who lands on `/welcome` is bounced to the
+  dashboard.
 - **RLS is the access boundary.** The app never gates "can I read this row?"
   in code — Postgres does. Sessions are readable by the owner or an **accepted**
   follower (a `follows.status = 'accepted'` row). Profiles are readable by all
@@ -138,8 +154,12 @@ app/
   feed/                  Follows + timeline
   log/                   Session form (create + edit) + server actions
   login/                 Magic-link & Google sign-in
+  welcome/               First-time onboarding wizard (name, DoB, belt, photo)
+  settings/              Edit profile (name, belt, DoB, photo, home gym)
   manifest.ts            PWA manifest
 components/TagInput.tsx  Chip autocomplete (submissions, partners)
+components/BeltStripePicker.tsx  Belt + stripes selector (settings & onboarding)
+lib/profile.ts           displayName()/hasFullName() name helpers
 lib/submissions.ts       Canonical submission names for autocomplete
   error.tsx              Global error boundary
   not-found.tsx          404

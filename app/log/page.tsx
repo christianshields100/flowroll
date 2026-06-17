@@ -17,7 +17,7 @@ export default async function LogPage({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
+      "id, display_name, first_name, last_name, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
     )
     .eq("id", user!.id)
     .single();
