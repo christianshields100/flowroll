@@ -315,8 +315,11 @@ create policy "avatars: delete own folder"
 
 ------------------------------------------------------------
 -- Profile auto-create on signup
--- Pulls display_name from raw_user_meta_data->>'display_name' if present,
--- else from the email local-part. Falls back to 'flowroll athlete' for safety.
+-- The @handle (display_name) is always the email local-part — e.g.
+-- christianshields100@gmail.com → "christianshields100". We deliberately ignore
+-- any OAuth-provided name (Google sends the person's full name) so the handle
+-- stays email-derived; the real name is collected separately in onboarding.
+-- Falls back to 'flowroll athlete' only if there's somehow no email.
 ------------------------------------------------------------
 create or replace function public.handle_new_user()
 returns trigger
@@ -329,8 +332,7 @@ begin
   values (
     new.id,
     coalesce(
-      nullif(new.raw_user_meta_data->>'display_name', ''),
-      split_part(new.email, '@', 1),
+      nullif(split_part(new.email, '@', 1), ''),
       'flowroll athlete'
     ),
     coalesce(new.raw_user_meta_data->>'belt', 'white'),

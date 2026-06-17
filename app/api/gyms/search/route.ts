@@ -19,6 +19,7 @@ const GYM_TAGS = [
   "amenity:dojo",
   "leisure:fitness_centre",
   "leisure:sports_centre",
+  "club:sport", // some academies are mapped as a sports club
 ];
 const GYM_TAG_QS = GYM_TAGS.map((t) => `&osm_tag=${t}`).join("");
 

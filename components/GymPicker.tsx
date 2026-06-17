@@ -1,9 +1,10 @@
 "use client";
 
 // Single-select gym autocomplete. Type → debounced /api/gyms/search → a list
-// of Google Places suggestions drops in below the box; pick one and we keep its
+// of OpenStreetMap suggestions drops in below the box; pick one and we keep its
 // place_id (the standardizing key) plus its name. Mirrors the submissions UX.
-// If search isn't configured, you can still save a free-text gym name.
+// There's always a "Use '<typed>'" option so gyms not on the map can be saved
+// as free text (no place_id → not standardized, but still recorded).
 import { useEffect, useRef, useState } from "react";
 
 type Suggestion = { placeId: string; name: string; address: string };
@@ -114,10 +115,13 @@ export function GymPicker({
     }
   }
 
-  const showDropdown =
-    open &&
-    query.trim().length >= 3 &&
-    (results.length > 0 || loading || unavailable);
+  const typed = query.trim();
+  // If what they typed isn't already an exact suggestion, always offer to save
+  // it as-is — lots of academies (especially small ones) just aren't on the map.
+  const exactMatch = results.some(
+    (s) => s.name.toLowerCase() === typed.toLowerCase(),
+  );
+  const showDropdown = open && typed.length >= 3;
 
   return (
     <div ref={rootRef} className="relative">
@@ -197,6 +201,26 @@ export function GymPicker({
                   </button>
                 </li>
               ))}
+              {/* Can't-find-it fallback: save the typed name verbatim. */}
+              {!exactMatch && !unavailable && (
+                <li className={results.length > 0 ? "border-t border-paper-line" : ""}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      commitFreeText();
+                    }}
+                    className="w-full text-left px-3 py-2 hover:bg-paper-ink transition"
+                  >
+                    <span className="block text-sm text-ink">
+                      Use &ldquo;{typed}&rdquo;
+                    </span>
+                    <span className="block text-xs text-ink-mute">
+                      Add your gym as-is — it isn&apos;t on the map yet
+                    </span>
+                  </button>
+                </li>
+              )}
             </ul>
           )}
         </>
