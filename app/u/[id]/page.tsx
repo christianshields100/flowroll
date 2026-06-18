@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { Avatar } from "@/components/Avatar";
 import { BeltChip, SessionCard, type Belt } from "@/components/SessionCard";
+import { SessionSocial } from "@/components/SessionSocial";
 import { formatHours, sessionTotals, type SessionRow } from "@/lib/stats";
+import { fetchSessionSocial } from "@/lib/social";
 import { follow, unfollow } from "@/app/feed/actions";
 import { displayName, hasFullName } from "@/lib/profile";
 
@@ -75,6 +77,14 @@ export default async function ProfilePage({
     rows = (data ?? []) as SessionRow[];
   }
   const totals = canView ? sessionTotals(rows) : null;
+
+  // Reactions + comments for this profile's visible sessions (all owned by the
+  // target). Empty when the profile is locked to us.
+  const { reactionsBySession, commentsBySession } = await fetchSessionSocial(
+    supabase,
+    canView ? rows.map((s) => ({ id: s.id, user_id: target.id })) : [],
+    me,
+  );
 
   return (
     <AppShell profile={myProfile} active={null}>
@@ -227,7 +237,17 @@ export default async function ProfilePage({
             ) : (
               <ul className="mt-4 space-y-4">
                 {rows.map((s) => (
-                  <SessionCard key={s.id} session={s} />
+                  <SessionCard
+                    key={s.id}
+                    session={s}
+                    footer={
+                      <SessionSocial
+                        sessionId={s.id}
+                        reactions={reactionsBySession.get(s.id) ?? []}
+                        comments={commentsBySession.get(s.id) ?? []}
+                      />
+                    }
+                  />
                 ))}
               </ul>
             )}
