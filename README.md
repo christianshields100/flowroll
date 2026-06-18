@@ -72,10 +72,12 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   followers. A pending request grants no visibility. Profiles stay discoverable
   in search (so people can request), but a private account's sessions are
   hidden from everyone who isn't an accepted follower — enforced in Postgres
-  RLS, not app code. Each session in the feed has **reactions** (a small
-  mat-flavoured palette) and a **comment** thread; who can react/comment is
-  gated by the same visibility rule via a `can_view_session()` SECURITY DEFINER
-  helper reused in the reaction/comment RLS policies.
+  RLS, not app code. Every session — in the feed and on profile pages — has
+  **reactions** (a small mat-flavoured palette) and a **comment** thread; who
+  can react/comment is gated by the same visibility rule via a
+  `can_view_session()` SECURITY DEFINER helper reused in the reaction/comment
+  RLS policies. The shared `lib/social.ts` `fetchSessionSocial()` helper loads
+  and shapes that data for both surfaces.
 - **`/u/[id]`** — profile pages. Avatar (upload your own photo to Supabase
   Storage, or a generated monogram until you do), **full name** (first + last)
   as the heading with `@username` as the handle underneath, belt rank, clickable
