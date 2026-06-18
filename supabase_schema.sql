@@ -501,3 +501,109 @@ create policy "follows: followee accepts"
   to authenticated
   using (followee_id = auth.uid())
   with check (followee_id = auth.uid() and status = 'accepted');
+
+------------------------------------------------------------
+-- v7: social — reactions + comments on sessions
+------------------------------------------------------------
+
+-- Reactions: one row per (session, user, emoji). The app uses a small fixed
+-- palette but we don't constrain it in the DB beyond a sane length.
+create table if not exists public.session_reactions (
+  session_id uuid not null references public.sessions(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  emoji      text not null check (char_length(emoji) between 1 and 16),
+  created_at timestamptz not null default now(),
+  primary key (session_id, user_id, emoji)
+);
+create index if not exists session_reactions_session_idx
+  on public.session_reactions (session_id);
+
+-- Comments: free text, newest-last in the UI.
+create table if not exists public.session_comments (
+  id         uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.sessions(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  body       text not null check (char_length(btrim(body)) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+create index if not exists session_comments_session_idx
+  on public.session_comments (session_id, created_at);
+
+-- Whether the caller may see a session — mirrors the "sessions: read own or
+-- followed" policy (owner, OR public account, OR accepted follower). SECURITY
+-- DEFINER so it can read sessions/profiles/follows regardless of the caller's
+-- own row-level visibility; auth.uid() still reflects the caller. Reused by the
+-- reaction/comment policies so visibility stays defined in exactly one place.
+create or replace function public.can_view_session(sid uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1
+    from public.sessions s
+    join public.profiles p on p.id = s.user_id
+    where s.id = sid
+      and (
+        s.user_id = auth.uid()
+        or p.is_private = false
+        or exists (
+          select 1 from public.follows f
+          where f.follower_id = auth.uid()
+            and f.followee_id = s.user_id
+            and f.status = 'accepted'
+        )
+      )
+  );
+$$;
+
+alter table public.session_reactions enable row level security;
+alter table public.session_comments  enable row level security;
+
+-- Reactions: read if you can see the session; add only your own on a session
+-- you can see; remove only your own.
+drop policy if exists "reactions: read visible" on public.session_reactions;
+create policy "reactions: read visible"
+  on public.session_reactions for select
+  to authenticated
+  using (public.can_view_session(session_id));
+
+drop policy if exists "reactions: insert own" on public.session_reactions;
+create policy "reactions: insert own"
+  on public.session_reactions for insert
+  to authenticated
+  with check (user_id = auth.uid() and public.can_view_session(session_id));
+
+drop policy if exists "reactions: delete own" on public.session_reactions;
+create policy "reactions: delete own"
+  on public.session_reactions for delete
+  to authenticated
+  using (user_id = auth.uid());
+
+-- Comments: read if you can see the session; add only as yourself on a visible
+-- session; delete your own OR (as the session owner) any comment on your session.
+drop policy if exists "comments: read visible" on public.session_comments;
+create policy "comments: read visible"
+  on public.session_comments for select
+  to authenticated
+  using (public.can_view_session(session_id));
+
+drop policy if exists "comments: insert own" on public.session_comments;
+create policy "comments: insert own"
+  on public.session_comments for insert
+  to authenticated
+  with check (user_id = auth.uid() and public.can_view_session(session_id));
+
+drop policy if exists "comments: delete own or session owner" on public.session_comments;
+create policy "comments: delete own or session owner"
+  on public.session_comments for delete
+  to authenticated
+  using (
+    user_id = auth.uid()
+    or exists (
+      select 1 from public.sessions s
+      where s.id = session_comments.session_id and s.user_id = auth.uid()
+    )
+  );

@@ -72,7 +72,10 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   followers. A pending request grants no visibility. Profiles stay discoverable
   in search (so people can request), but a private account's sessions are
   hidden from everyone who isn't an accepted follower — enforced in Postgres
-  RLS, not app code.
+  RLS, not app code. Each session in the feed has **reactions** (a small
+  mat-flavoured palette) and a **comment** thread; who can react/comment is
+  gated by the same visibility rule via a `can_view_session()` SECURITY DEFINER
+  helper reused in the reaction/comment RLS policies.
 - **`/u/[id]`** — profile pages. Avatar (upload your own photo to Supabase
   Storage, or a generated monogram until you do), **full name** (first + last)
   as the heading with `@username` as the handle underneath, belt rank, clickable
@@ -107,7 +110,6 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
 
 These are out of scope so we can ship. Tracked for later:
 
-- Comments / reactions on feed sessions
 - Leaderboards (mat hours, sub counts, etc.)
 - Whoop / Garmin / Apple Health integration
 - Photo & video attachments

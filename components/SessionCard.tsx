@@ -40,9 +40,11 @@ export function BeltChip({
 export function SessionCard({
   session,
   author,
+  footer,
 }: {
   session: SessionRow;
   author?: { display_name: string; belt: Belt; stripes: number } | null;
+  footer?: React.ReactNode;
 }) {
   const date = parseDateOnly(session.trained_on).toLocaleDateString(undefined, {
     weekday: "short",
@@ -106,6 +108,8 @@ export function SessionCard({
           ))}
         </div>
       ) : null}
+
+      {footer}
     </li>
   );
 }

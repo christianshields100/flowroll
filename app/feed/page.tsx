@@ -4,6 +4,12 @@ import { AppShell } from "@/components/AppShell";
 import { Avatar } from "@/components/Avatar";
 import { displayName } from "@/lib/profile";
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
+import { REACTIONS } from "@/lib/reactions";
+import {
+  SessionSocial,
+  type ReactionView,
+  type CommentView,
+} from "@/components/SessionSocial";
 import {
   acceptFollowRequest,
   follow,
@@ -135,6 +141,82 @@ export default async function FeedPage({
   const feedSessions = (feedSessionsData ?? []) as (SessionRow & {
     user_id: string;
   })[];
+
+  // --- Social: reactions + comments for the sessions we're about to render ---
+  const sessionIds = feedSessions.map((s) => s.id);
+  let reactionRows: { session_id: string; user_id: string; emoji: string }[] =
+    [];
+  let commentRows: {
+    id: string;
+    session_id: string;
+    user_id: string;
+    body: string;
+    created_at: string;
+  }[] = [];
+  if (sessionIds.length) {
+    const [rx, cm] = await Promise.all([
+      supabase
+        .from("session_reactions")
+        .select("session_id, user_id, emoji")
+        .in("session_id", sessionIds),
+      supabase
+        .from("session_comments")
+        .select("id, session_id, user_id, body, created_at")
+        .in("session_id", sessionIds)
+        .order("created_at", { ascending: true }),
+    ]);
+    reactionRows = (rx.data ?? []) as typeof reactionRows;
+    commentRows = (cm.data ?? []) as typeof commentRows;
+  }
+
+  // Profiles for commenters we haven't already loaded (commenter could be me,
+  // the author, or another follower).
+  const socialProfileById = new Map(profileById);
+  if (myProfile) socialProfileById.set(me, myProfile as Profile);
+  const missingCommenterIds = Array.from(
+    new Set(commentRows.map((c) => c.user_id)),
+  ).filter((id) => !socialProfileById.has(id));
+  if (missingCommenterIds.length) {
+    const { data: extra } = await supabase
+      .from("profiles")
+      .select(
+        "id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url",
+      )
+      .in("id", missingCommenterIds);
+    for (const p of (extra ?? []) as Profile[]) socialProfileById.set(p.id, p);
+  }
+
+  const reactionsBySession = new Map<string, ReactionView[]>();
+  for (const sid of sessionIds) {
+    const rows = reactionRows.filter((r) => r.session_id === sid);
+    reactionsBySession.set(
+      sid,
+      REACTIONS.map((emoji) => {
+        const forEmoji = rows.filter((r) => r.emoji === emoji);
+        return {
+          emoji,
+          count: forEmoji.length,
+          mine: forEmoji.some((r) => r.user_id === me),
+        };
+      }),
+    );
+  }
+  const commentsBySession = new Map<string, CommentView[]>();
+  for (const c of commentRows) {
+    const author = socialProfileById.get(c.user_id);
+    const session = feedSessions.find((s) => s.id === c.session_id);
+    const list = commentsBySession.get(c.session_id) ?? [];
+    list.push({
+      id: c.id,
+      body: c.body,
+      authorName: author ? displayName(author) : "Someone",
+      authorAvatar: author?.avatar_url ?? null,
+      authorBelt: (author?.belt ?? "white") as Belt,
+      createdAt: c.created_at,
+      canDelete: c.user_id === me || session?.user_id === me,
+    });
+    commentsBySession.set(c.session_id, list);
+  }
 
   return (
     <AppShell profile={myProfile} active="feed">
@@ -311,6 +393,13 @@ export default async function FeedPage({
                   key={s.id}
                   session={s}
                   author={profileById.get(s.user_id) ?? null}
+                  footer={
+                    <SessionSocial
+                      sessionId={s.id}
+                      reactions={reactionsBySession.get(s.id) ?? []}
+                      comments={commentsBySession.get(s.id) ?? []}
+                    />
+                  }
                 />
               ))}
             </ul>
@@ -433,9 +522,11 @@ function BeltChip({ belt, stripes }: { belt: Belt; stripes: number }) {
 function SessionCard({
   session,
   author,
+  footer,
 }: {
   session: SessionRow & { user_id: string };
   author: Profile | null;
+  footer?: React.ReactNode;
 }) {
   const date = parseDateOnly(session.trained_on).toLocaleDateString(undefined, {
     weekday: "short",
@@ -506,6 +597,8 @@ function SessionCard({
           ))}
         </div>
       ) : null}
+
+      {footer}
     </li>
   );
 }
