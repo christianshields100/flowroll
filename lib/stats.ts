@@ -202,3 +202,60 @@ export function formatHours(min: number): string {
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
 }
+
+export type SubmissionStat = {
+  name: string; // normalized lowercase
+  hit: number; // times finished
+  caught: number; // times caught in
+  net: number; // hit - caught
+  total: number; // hit + caught
+  rate: number; // hit / total, 0..1
+};
+
+// Per-submission tally across sessions, normalized by lowercased name. `net` =
+// times you finished it minus times you got caught in it; `rate` = finish rate.
+// Sorted by total appearances desc, then net desc, then name.
+export function submissionStats(sessions: SessionRow[]): SubmissionStat[] {
+  const map = new Map<string, { hit: number; caught: number }>();
+  const bump = (raw: string, key: "hit" | "caught") => {
+    const name = raw.trim().toLowerCase();
+    if (!name) return;
+    const r = map.get(name) ?? { hit: 0, caught: 0 };
+    r[key]++;
+    map.set(name, r);
+  };
+  for (const s of sessions) {
+    s.subs_hit?.forEach((x) => bump(x, "hit"));
+    s.subs_caught_in?.forEach((x) => bump(x, "caught"));
+  }
+  return Array.from(map.entries())
+    .map(([name, r]) => {
+      const total = r.hit + r.caught;
+      return {
+        name,
+        hit: r.hit,
+        caught: r.caught,
+        net: r.hit - r.caught,
+        total,
+        rate: total === 0 ? 0 : r.hit / total,
+      };
+    })
+    .sort(
+      (a, b) =>
+        b.total - a.total || b.net - a.net || a.name.localeCompare(b.name),
+    );
+}
+
+// Compact one-line scorecard for the Coach / recap prompt context, e.g.
+// "armbar 5/0 (+5), triangle 1/4 (-3)". Empty string if nothing logged.
+export function submissionScorecard(
+  sessions: SessionRow[],
+  limit = 12,
+): string {
+  return submissionStats(sessions)
+    .slice(0, limit)
+    .map(
+      (s) => `${s.name} ${s.hit}/${s.caught} (${s.net >= 0 ? "+" : ""}${s.net})`,
+    )
+    .join(", ");
+}

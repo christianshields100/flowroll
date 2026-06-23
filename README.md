@@ -63,7 +63,9 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   `/log?edit=<id>` reuses the same form.
 - **`/dashboard`** — streak, lifetime totals, a Daily / Weekly / Monthly toggle
   over the mat-time, rounds, and feel-vs-volume charts (last 14 days / 8 weeks /
-  6 months), submission ledger (hit vs caught-in toggle), top training partners,
+  6 months), a submission report (Hit / Caught-in / **Net** toggle — net ranks
+  your sharpest finishes vs. the submissions that keep catching you, with a
+  sharpest-finish & nemesis caption), top training partners,
   searchable notes with inline edit / delete, and a Coach-generated weekly recap.
 - **`/feed`** — find training partners by name, follow / unfollow, see their
   recent sessions. **Instagram-style privacy:** toggle your account public or
@@ -99,7 +101,10 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   on username, first name, or last name.
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
   your notes and full log history. Scope-locked to BJJ and your own data — it
-  declines anything off-topic. Conversations persist across reloads, render
+  declines anything off-topic. Its context includes an aggregated **submission
+  scorecard** (finished/caught/net per submission via `submissionStats`) so it
+  can answer "what's my highest-percentage finish?" / "what keeps catching me?"
+  reliably; the weekly recap gets the same. Conversations persist across reloads, render
   markdown, and the training-log context is prompt-cached across turns. Coach
   can also **web-search** for instructional videos/articles (server-side
   `web_search` tool) — locked to BJJ topics, returns real cited links. Capped at

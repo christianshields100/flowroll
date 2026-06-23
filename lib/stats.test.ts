@@ -5,6 +5,8 @@ import {
   parseDateOnly,
   periodBuckets,
   sessionTotals,
+  submissionScorecard,
+  submissionStats,
   weekStart,
   weeklyBuckets,
   type SessionRow,
@@ -236,5 +238,60 @@ describe("formatHours", () => {
     expect(formatHours(45)).toBe("45m");
     expect(formatHours(120)).toBe("2h");
     expect(formatHours(135)).toBe("2h 15m");
+  });
+});
+
+describe("submissionStats", () => {
+  const sessions = [
+    session({ subs_hit: ["Armbar", "Triangle"], subs_caught_in: ["Triangle"] }),
+    session({ subs_hit: ["armbar", "armbar"], subs_caught_in: ["Heel Hook"] }),
+    session({ subs_hit: [], subs_caught_in: ["heel hook", "triangle"] }),
+  ];
+
+  it("tallies hit/caught/net/total per normalized name", () => {
+    const stats = submissionStats(sessions);
+    const armbar = stats.find((s) => s.name === "armbar")!;
+    expect(armbar).toMatchObject({ hit: 3, caught: 0, net: 3, total: 3 });
+    expect(armbar.rate).toBe(1);
+
+    const triangle = stats.find((s) => s.name === "triangle")!;
+    expect(triangle).toMatchObject({ hit: 1, caught: 2, net: -1, total: 3 });
+    expect(triangle.rate).toBeCloseTo(1 / 3);
+
+    const heel = stats.find((s) => s.name === "heel hook")!;
+    expect(heel).toMatchObject({ hit: 0, caught: 2, net: -2, total: 2 });
+  });
+
+  it("is case-insensitive and trims whitespace", () => {
+    const stats = submissionStats([
+      session({ subs_hit: ["  RNC ", "rnc"] }),
+    ]);
+    expect(stats).toHaveLength(1);
+    expect(stats[0]).toMatchObject({ name: "rnc", hit: 2 });
+  });
+
+  it("sorts by total appearances, then net", () => {
+    const stats = submissionStats(sessions);
+    // armbar (total 3, net +3) and triangle (total 3, net -1) tie on total;
+    // armbar's higher net wins the tiebreak.
+    expect(stats.map((s) => s.name).slice(0, 2)).toEqual(["armbar", "triangle"]);
+  });
+
+  it("returns empty for no submissions", () => {
+    expect(submissionStats([session({})])).toEqual([]);
+  });
+});
+
+describe("submissionScorecard", () => {
+  it("renders a compact hit/caught (net) line", () => {
+    const line = submissionScorecard([
+      session({ subs_hit: ["armbar", "armbar"], subs_caught_in: ["triangle"] }),
+      session({ subs_caught_in: ["triangle"] }),
+    ]);
+    expect(line).toBe("armbar 2/0 (+2), triangle 0/2 (-2)");
+  });
+
+  it("is empty when nothing is logged", () => {
+    expect(submissionScorecard([session({})])).toBe("");
   });
 });

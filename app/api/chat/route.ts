@@ -5,7 +5,7 @@
 // chat_messages so conversations survive reloads.
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import type { SessionRow } from "@/lib/stats";
+import { submissionScorecard, type SessionRow } from "@/lib/stats";
 
 // The Anthropic SDK needs the Node runtime (not Edge).
 export const runtime = "nodejs";
@@ -131,6 +131,10 @@ export async function POST(request: Request) {
   const dataBlock = [
     `Today's date: ${today}`,
     `Athlete: ${profile?.display_name ?? "unknown"} — ${profile?.belt ?? "white"} belt, ${profile?.stripes ?? 0} stripe(s)`,
+    ``,
+    submissionScorecard(rows)
+      ? `All-time submission scorecard (finished/caught, net) — use this for "best submission" / "what catches me" questions: ${submissionScorecard(rows, 30)}`
+      : ``,
     ``,
     `Training log (${rows.length} sessions, newest first):`,
     rows.length

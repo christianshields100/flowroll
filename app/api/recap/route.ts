@@ -3,7 +3,12 @@
 // only when a session has been logged since the recap was written.
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
-import { isoDate, weekStart, type SessionRow } from "@/lib/stats";
+import {
+  isoDate,
+  submissionScorecard,
+  weekStart,
+  type SessionRow,
+} from "@/lib/stats";
 
 export const runtime = "nodejs";
 
@@ -90,6 +95,10 @@ export async function POST() {
     lastWeek.length
       ? `Last week, for comparison:\n${lastWeek.map(formatSession).join("\n")}`
       : `Last week: no sessions logged.`,
+    ``,
+    submissionScorecard(thisWeek)
+      ? `This week's submission scorecard (finished/caught, net): ${submissionScorecard(thisWeek)}`
+      : ``,
     ``,
     `Write 2-4 sentences, plain text only (no markdown, no greeting). Conversational, specific, second person. Mention concrete numbers or submissions or note themes where they stand out — volume vs last week, repeated catches, what they drilled. End with one short pointed suggestion.`,
   ].join("\n");
