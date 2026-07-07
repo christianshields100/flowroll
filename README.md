@@ -101,10 +101,14 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   on username, first name, or last name.
 - **`/chat`** — "Coach", an AI chatbot (Claude) that answers questions about
   your notes and full log history. Scope-locked to BJJ and your own data — it
-  declines anything off-topic. Its context includes an aggregated **submission
-  scorecard** (finished/caught/net per submission via `submissionStats`) so it
-  can answer "what's my highest-percentage finish?" / "what keeps catching me?"
-  reliably; the weekly recap gets the same. Conversations persist across reloads, render
+  declines anything off-topic. Coach is **agentic**: its prompt carries only a
+  summary (lifetime totals, all-time submission scorecard, the last few
+  sessions) and it **pulls the rest on demand** through retrieval tools —
+  `query_sessions` (date range / keyword over the full log) and
+  `get_submission_stats` (per-submission finished/caught/net/finish-rate for
+  any period) — via a server-side tool loop in `/api/chat` (`lib/coach-tools.ts`),
+  so answers like "compare my May vs June" come from real queries, not guesses.
+  The weekly recap gets the same scorecard. Conversations persist across reloads, render
   markdown, and the training-log context is prompt-cached across turns. Coach
   can also **web-search** for instructional videos/articles (server-side
   `web_search` tool) — locked to BJJ topics, returns real cited links. Capped at
