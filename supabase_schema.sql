@@ -607,3 +607,42 @@ create policy "comments: delete own or session owner"
       where s.id = session_comments.session_id and s.user_id = auth.uid()
     )
   );
+
+------------------------------------------------------------
+-- v8: session media — photos/videos attached to sessions
+------------------------------------------------------------
+
+-- Public URLs into the session-media bucket. Rides along with the session row,
+-- so feed/profile visibility is enforced by the existing sessions RLS.
+alter table public.sessions
+  add column if not exists media_urls text[] not null default '{}';
+
+-- session-media bucket: public read (so <img>/<video> work without signed
+-- URLs); a user may only write into their own {user_id}/… folder. 50MB cap,
+-- images + video only.
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+  values ('session-media', 'session-media', true, 52428800, array['image/*','video/*'])
+  on conflict (id) do nothing;
+
+drop policy if exists "session-media: public read" on storage.objects;
+create policy "session-media: public read"
+  on storage.objects for select
+  using (bucket_id = 'session-media');
+
+drop policy if exists "session-media: write own folder" on storage.objects;
+create policy "session-media: write own folder"
+  on storage.objects for insert
+  to authenticated
+  with check (
+    bucket_id = 'session-media'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );
+
+drop policy if exists "session-media: delete own folder" on storage.objects;
+create policy "session-media: delete own folder"
+  on storage.objects for delete
+  to authenticated
+  using (
+    bucket_id = 'session-media'
+    and (storage.foldername(name))[1] = auth.uid()::text
+  );

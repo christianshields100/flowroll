@@ -1,5 +1,6 @@
 import "server-only";
 import type Anthropic from "@anthropic-ai/sdk";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { submissionStats, type SessionRow } from "@/lib/stats";
 
@@ -74,6 +75,57 @@ export const COACH_TOOL_DEFINITIONS: Anthropic.Tool[] = [
           description: "Latest date to include, YYYY-MM-DD (inclusive).",
         },
       },
+    },
+  },
+  {
+    name: "log_session",
+    description:
+      "Save a NEW training session to the athlete's log. Call this ONLY after you've shown the athlete the exact structured session you're about to save and they explicitly confirmed it in their latest message. Never call it speculatively.",
+    input_schema: {
+      type: "object",
+      properties: {
+        trained_on: {
+          type: "string",
+          description: "Session date, YYYY-MM-DD ('today' resolves via the date in context).",
+        },
+        duration_min: {
+          type: "number",
+          description: "Mat time in minutes (1–599).",
+        },
+        rounds: {
+          type: "number",
+          description: "Rounds rolled (0–99). Default 0 if unknown.",
+        },
+        feel: {
+          type: "number",
+          description: "How it felt, 1–5. Ask the athlete if they didn't say.",
+        },
+        gym: { type: "string", description: "Gym name, if mentioned." },
+        drilled: {
+          type: "string",
+          description: "What they drilled, if mentioned.",
+        },
+        subs_hit: {
+          type: "array",
+          items: { type: "string" },
+          description: "Submissions they finished.",
+        },
+        subs_caught_in: {
+          type: "array",
+          items: { type: "string" },
+          description: "Submissions they got caught in.",
+        },
+        partners: {
+          type: "array",
+          items: { type: "string" },
+          description: "Training partners mentioned by name.",
+        },
+        note: {
+          type: "string",
+          description: "Free-text note distilled from their description.",
+        },
+      },
+      required: ["trained_on", "duration_min", "feel"],
     },
   },
 ];
@@ -158,6 +210,59 @@ export async function runCoachTool(
       return [`Submission scorecard (${range}), across ${rows.length} sessions:`, ...lines].join(
         "\n",
       );
+    }
+
+    if (name === "log_session") {
+      const a = (input ?? {}) as {
+        trained_on?: string;
+        duration_min?: number;
+        rounds?: number;
+        feel?: number;
+        gym?: string;
+        drilled?: string;
+        subs_hit?: string[];
+        subs_caught_in?: string[];
+        partners?: string[];
+        note?: string;
+      };
+      if (!a.trained_on || !DATE_RE.test(a.trained_on))
+        return "Invalid trained_on — use YYYY-MM-DD.";
+      const duration = Math.floor(Number(a.duration_min));
+      if (!Number.isFinite(duration) || duration < 1 || duration > 599)
+        return "Invalid duration_min — must be 1–599 minutes.";
+      const rounds = Math.min(99, Math.max(0, Math.floor(Number(a.rounds) || 0)));
+      const feel = Math.floor(Number(a.feel));
+      if (!Number.isFinite(feel) || feel < 1 || feel > 5)
+        return "Invalid feel — must be 1–5.";
+      const clean = (arr?: string[]) =>
+        (Array.isArray(arr) ? arr : [])
+          .map((s) => String(s).trim())
+          .filter(Boolean)
+          .slice(0, 20);
+
+      const { data, error } = await supabase
+        .from("sessions")
+        .insert({
+          user_id: userId,
+          trained_on: a.trained_on,
+          duration_min: duration,
+          rounds,
+          feel,
+          gym: a.gym?.trim() || null,
+          drilled: a.drilled?.trim() || null,
+          note: a.note?.trim() || null,
+          subs_hit: clean(a.subs_hit),
+          subs_caught_in: clean(a.subs_caught_in),
+          partners: clean(a.partners),
+        })
+        .select(SESSION_COLS)
+        .single();
+      if (error) return `Could not save the session: ${error.message}`;
+
+      revalidatePath("/dashboard");
+      revalidatePath("/feed");
+      revalidatePath(`/u/${userId}`);
+      return `Session saved successfully:\n${formatSession(data as SessionRow)}`;
     }
 
     return `Unknown tool: ${name}`;

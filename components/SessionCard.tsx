@@ -1,5 +1,6 @@
 // Shared read-only session card + belt chip, used by the feed and profile pages.
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
+import { SessionMedia } from "@/components/SessionMedia";
 
 export type Belt = "white" | "blue" | "purple" | "brown" | "black";
 
@@ -108,6 +109,8 @@ export function SessionCard({
           ))}
         </div>
       ) : null}
+
+      <SessionMedia urls={session.media_urls} />
 
       {footer}
     </li>

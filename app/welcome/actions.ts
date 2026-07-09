@@ -24,6 +24,10 @@ export async function completeOnboarding(formData: FormData) {
     4,
     Math.max(0, Math.floor(Number(formData.get("stripes")) || 0)),
   );
+  const homeGymName =
+    (formData.get("home_gym_name") ?? "").toString().trim() || null;
+  const homeGymPlaceId =
+    (formData.get("home_gym_place_id") ?? "").toString().trim() || null;
 
   await supabase
     .from("profiles")
@@ -33,6 +37,8 @@ export async function completeOnboarding(formData: FormData) {
       dob,
       belt,
       stripes,
+      home_gym_name: homeGymName,
+      home_gym_place_id: homeGymPlaceId,
       onboarded: true,
     })
     .eq("id", user.id);

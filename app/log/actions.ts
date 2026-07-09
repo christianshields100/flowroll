@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { isSessionMediaUrl, MAX_MEDIA_PER_SESSION } from "@/lib/media";
 
 export type LogActionState =
   | { status: "idle" }
@@ -34,6 +35,13 @@ function parseSessionFields(formData: FormData):
   const subs_hit = parseSubs(formData.get("subs_hit"));
   const subs_caught_in = parseSubs(formData.get("subs_caught_in"));
   const partners = parseSubs(formData.get("partners"));
+  // Newline-joined public URLs from MediaUploader; only our own bucket counts.
+  const media_urls = (formData.get("media_urls") ?? "")
+    .toString()
+    .split("\n")
+    .map((s) => s.trim())
+    .filter((u) => u && isSessionMediaUrl(u))
+    .slice(0, MAX_MEDIA_PER_SESSION);
 
   if (!trained_on || typeof trained_on !== "string") {
     return { ok: false, message: "Pick a date." };
@@ -62,6 +70,7 @@ function parseSessionFields(formData: FormData):
       subs_hit,
       subs_caught_in,
       partners,
+      media_urls,
     },
   };
 }

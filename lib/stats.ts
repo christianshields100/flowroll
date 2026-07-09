@@ -13,6 +13,7 @@ export type SessionRow = {
   gym_place_id?: string | null;
   drilled: string | null;
   note: string | null;
+  media_urls?: string[]; // public session-media URLs (photos/videos)
   created_at: string;
 };
 

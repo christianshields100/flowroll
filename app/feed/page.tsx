@@ -6,6 +6,7 @@ import { displayName } from "@/lib/profile";
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
 import { fetchSessionSocial } from "@/lib/social";
 import { SessionSocial } from "@/components/SessionSocial";
+import { SessionMedia } from "@/components/SessionMedia";
 import {
   acceptFollowRequest,
   follow,
@@ -49,7 +50,9 @@ export default async function FeedPage({
 
   const { data: myProfile } = await supabase
     .from("profiles")
-    .select("id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url")
+    .select(
+      "id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url, home_gym_place_id, home_gym_name",
+    )
     .eq("id", me)
     .single();
 
@@ -121,13 +124,35 @@ export default async function FeedPage({
   const stateFor = (id: string): FollowState =>
     followedSet.has(id) ? "following" : requestedIds.has(id) ? "requested" : "none";
 
+  // Cold start: people who share my home gym that I don't already follow.
+  let gymSuggestions: Profile[] = [];
+  if (myProfile?.home_gym_place_id) {
+    const { data } = await supabase
+      .from("profiles")
+      .select(
+        "id, display_name, first_name, last_name, belt, stripes, is_private, avatar_url",
+      )
+      .eq("home_gym_place_id", myProfile.home_gym_place_id)
+      .neq("id", me)
+      .limit(12);
+    gymSuggestions = ((data ?? []) as Profile[])
+      .filter((p) => !followedSet.has(p.id) && !requestedIds.has(p.id))
+      .slice(0, 5);
+  }
+
+  // Have I logged anything yet? Drives the "log your first session" nudge.
+  const { count: mySessionCount } = await supabase
+    .from("sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", me);
+
   // Feed: sessions from accepted follows only. RLS enforces this too;
   // the explicit IN keeps the feed scoped and the query cheap.
   const { data: feedSessionsData } = followedIds.length
     ? await supabase
         .from("sessions")
         .select(
-          "id, user_id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at",
+          "id, user_id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, media_urls, created_at",
         )
         .in("user_id", followedIds)
         .order("trained_on", { ascending: false })
@@ -198,6 +223,25 @@ export default async function FeedPage({
                       </form>
                     </span>
                   </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {gymSuggestions.length > 0 && (
+            <div>
+              <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
+                From your gym
+                {myProfile?.home_gym_name ? ` · ${myProfile.home_gym_name}` : ""}
+              </p>
+              <ul className="mt-3 space-y-2">
+                {gymSuggestions.map((p) => (
+                  <PersonRow
+                    key={p.id}
+                    profile={p}
+                    state={stateFor(p.id)}
+                    showPrivacy
+                  />
                 ))}
               </ul>
             </div>
@@ -312,6 +356,14 @@ export default async function FeedPage({
                   ? "Follow a training partner and their sessions land here."
                   : "Nothing from your circle yet. Check back after they roll."}
               </p>
+              {(mySessionCount ?? 0) === 0 && (
+                <Link
+                  href="/log"
+                  className="mt-4 inline-block bg-accent text-paper px-5 py-2.5 rounded-sm font-medium hover:bg-accent-deep transition"
+                >
+                  Log your first session →
+                </Link>
+              )}
             </div>
           ) : (
             <ul className="mt-5 space-y-4">
@@ -524,6 +576,8 @@ function SessionCard({
           ))}
         </div>
       ) : null}
+
+      <SessionMedia urls={session.media_urls} />
 
       {footer}
     </li>

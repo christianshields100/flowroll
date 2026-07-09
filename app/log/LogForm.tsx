@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { SessionRow } from "@/lib/stats";
 import { TagInput } from "@/components/TagInput";
 import { GymPicker } from "@/components/GymPicker";
+import { MediaUploader } from "@/components/MediaUploader";
 import { logSession, updateSession, type LogActionState } from "./actions";
 
 const initialState: LogActionState = { status: "idle" };
@@ -17,12 +18,14 @@ function todayISO() {
 }
 
 export function LogForm({
+  uid,
   defaultGym,
   defaultGymPlaceId,
   subSuggestions,
   partnerSuggestions,
   editSession = null,
 }: {
+  uid: string;
   defaultGym: string | null;
   defaultGymPlaceId: string | null;
   subSuggestions: string[];
@@ -36,6 +39,8 @@ export function LogForm({
     initialState,
   );
   const [feel, setFeel] = useState<number>(editSession?.feel ?? 3);
+  // Remounts MediaUploader (clearing its internal list) after a save.
+  const [mediaKey, setMediaKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Edit mode redirects server-side; this reset only applies to new entries.
@@ -43,6 +48,7 @@ export function LogForm({
     if (state.status !== "ok" || editing) return;
     formRef.current?.reset();
     setFeel(3);
+    setMediaKey((k) => k + 1);
   }, [state, editing]);
 
   return (
@@ -151,6 +157,14 @@ export function LogForm({
           placeholder="Anything worth remembering — what worked, what didn't."
           defaultValue={editSession?.note ?? ""}
           className={`${inputCls} resize-y`}
+        />
+      </Field>
+
+      <Field label="Photos / video" hint="Shows on your session in the feed" asDiv>
+        <MediaUploader
+          key={mediaKey}
+          uid={uid}
+          initialUrls={editSession?.media_urls ?? []}
         />
       </Field>
 

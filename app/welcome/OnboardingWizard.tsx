@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useFormStatus } from "react-dom";
 import { Avatar } from "@/components/Avatar";
 import { BeltStripePicker } from "@/components/BeltStripePicker";
+import { GymPicker } from "@/components/GymPicker";
 import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
 import { completeOnboarding } from "./actions";
 
@@ -19,9 +20,11 @@ type Initial = {
   belt: string;
   stripes: number;
   avatar_url: string | null;
+  home_gym_name: string;
+  home_gym_place_id: string;
 };
 
-const STEPS = ["You", "Belt", "Photo"];
+const STEPS = ["You", "Belt", "Gym", "Photo"];
 
 export function OnboardingWizard({
   uid,
@@ -115,8 +118,28 @@ export function OnboardingWizard({
         </div>
       </div>
 
-      {/* Step 2 — photo */}
+      {/* Step 2 — home gym */}
       <div className={step === 2 ? "" : "hidden"}>
+        <h2 className="font-display text-2xl tracking-tightish">
+          Where do you train?
+        </h2>
+        <p className="mt-1 text-sm text-ink-dim">
+          We&apos;ll suggest training partners from your gym. Optional — you can
+          set it later in settings.
+        </p>
+        <div className="mt-5">
+          <GymPicker
+            nameField="home_gym_name"
+            placeIdField="home_gym_place_id"
+            initialName={initial.home_gym_name}
+            initialPlaceId={initial.home_gym_place_id}
+            placeholder="Search your gym…"
+          />
+        </div>
+      </div>
+
+      {/* Step 3 — photo */}
+      <div className={step === 3 ? "" : "hidden"}>
         <h2 className="font-display text-2xl tracking-tightish">
           Add a profile photo
         </h2>

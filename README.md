@@ -59,8 +59,11 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   OpenStreetMap/Photon geocoder via `/api/gyms/search`) and stores the place's
   OSM id so gyms are standardized for cross-gym analytics. It asks for your
   location (best-effort) to rank nearby academies first, and there's always a
-  "Use '…'" option so gyms not on the map can be saved as free text.
-  `/log?edit=<id>` reuses the same form.
+  "Use '…'" option so gyms not on the map can be saved as free text. Sessions
+  can carry up to 6 **photos/videos** (uploaded straight to the public
+  `session-media` bucket, RLS-scoped to your own folder) that render on the
+  session card in the feed and on profiles. `/log?edit=<id>` reuses the same
+  form.
 - **`/dashboard`** — streak, lifetime totals, a Daily / Weekly / Monthly toggle
   over the mat-time, rounds, and feel-vs-volume charts (last 14 days / 8 weeks /
   6 months), a submission report (Hit / Caught-in / **Net** toggle — net ranks
@@ -89,10 +92,13 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   shows a locked state and locked lists — enforced by RLS + SECURITY DEFINER
   functions, not page code.
 - **`/welcome`** — first-time setup wizard. New sign-ups are routed here by
-  middleware (the onboarding gate) until they finish: a three-step flow
-  collecting name + date of birth, belt + stripes, and an optional profile
-  photo. DoB is stored but **never shown** anywhere. Setting `onboarded = true`
-  lets them into the rest of the app.
+  middleware (the onboarding gate) until they finish: a four-step flow
+  collecting name + date of birth, belt + stripes, home gym (feeds the
+  suggested-follows below), and an optional profile photo. DoB is stored but
+  **never shown** anywhere. Setting `onboarded = true` lets them into the rest
+  of the app. To beat the empty-feed cold start, the feed shows **"From your
+  gym"** follow suggestions (same standardized home-gym id) and a "log your
+  first session" nudge until they've logged one.
 - **`/settings`** — edit profile: first / last name, belt + stripes (the
   `BeltStripePicker`), private date of birth, profile photo, and home gym. Names
   flow through `lib/profile.ts`'s `displayName()` helper, which shows the full
@@ -108,6 +114,9 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
   `get_submission_stats` (per-submission finished/caught/net/finish-rate for
   any period) — via a server-side tool loop in `/api/chat` (`lib/coach-tools.ts`),
   so answers like "compare my May vs June" come from real queries, not guesses.
+  Coach can also **log a session for you**: describe your roll in plain English
+  and it parses the fields, shows you exactly what it will save, and calls its
+  `log_session` write tool only after you confirm.
   The weekly recap gets the same scorecard. Conversations persist across reloads, render
   markdown, and the training-log context is prompt-cached across turns. Coach
   can also **web-search** for instructional videos/articles (server-side

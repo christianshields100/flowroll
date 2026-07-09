@@ -9,7 +9,9 @@ export default async function WelcomePage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, display_name, first_name, last_name, dob, belt, stripes, avatar_url")
+    .select(
+      "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
+    )
     .eq("id", user!.id)
     .single();
 
@@ -33,6 +35,8 @@ export default async function WelcomePage() {
               belt: profile?.belt ?? "white",
               stripes: profile?.stripes ?? 0,
               avatar_url: profile?.avatar_url ?? null,
+              home_gym_name: profile?.home_gym_name ?? "",
+              home_gym_place_id: profile?.home_gym_place_id ?? "",
             }}
           />
         </div>
