@@ -192,3 +192,12 @@ Push to GitHub, import in Vercel, set the three env vars above (with
 `NEXT_PUBLIC_SITE_URL` pointing at the Vercel URL), and add that URL to
 Supabase's allowed redirect list and to the Google OAuth client's authorized
 redirect URIs.
+
+### Supabase keep-alive
+
+Free-tier Supabase projects auto-pause after ~7 days without activity, which
+takes the whole site down (auth runs through Supabase). A Vercel cron
+(`vercel.json`) pings `/api/keepalive` twice a week (Mon & Thu 09:00 UTC); the
+endpoint runs one trivial RLS-scoped query so the project always registers
+activity. Optionally set a `CRON_SECRET` env var in Vercel to lock the endpoint
+to cron invocations.
