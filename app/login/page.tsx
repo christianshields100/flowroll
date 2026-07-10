@@ -131,10 +131,6 @@ function LoginForm() {
           </>
         )}
       </div>
-
-      <p className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute text-center mt-6">
-        No passwords. Ever.
-      </p>
     </div>
   );
 }
