@@ -41,9 +41,6 @@ export default function Home() {
                 Step on the mat
                 <span aria-hidden>→</span>
               </Link>
-              <span className="font-mono text-xs text-ink-mute">
-                magic-link sign-in · no passwords
-              </span>
             </div>
           </div>
 
