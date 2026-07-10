@@ -202,6 +202,21 @@ Push to GitHub, import in Vercel, set the three env vars above (with
 Supabase's allowed redirect list and to the Google OAuth client's authorized
 redirect URIs.
 
+### Production ops
+
+- **Error monitoring** — Sentry is wired in (`sentry.*.config.ts`,
+  `instrumentation.ts`, `app/global-error.tsx`) but dormant until the
+  `NEXT_PUBLIC_SENTRY_DSN` env var is set in Vercel. No DSN, no overhead.
+- **Uptime** — `.github/workflows/uptime.yml` probes `/`, `/login`, and
+  `/api/keepalive` (a real DB round-trip) every 15 minutes and opens/closes a
+  GitHub issue on failure/recovery, which emails the repo owner.
+- **Backups** — the private `flowroll-ops` repo dumps the database (schema +
+  data) every Monday and keeps 12 weeks of history. Needs the
+  `SUPABASE_DB_URL` secret set there once; restore instructions in its README.
+- **Auth email** — Supabase's built-in SMTP is heavily rate-limited and
+  spam-prone; before opening signups, connect custom SMTP (e.g. Resend) in
+  Supabase → Auth → SMTP and raise the auth email rate limits.
+
 ### Supabase keep-alive
 
 Free-tier Supabase projects auto-pause after ~7 days without activity, which

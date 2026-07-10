@@ -1,0 +1,53 @@
+name: Uptime check
+
+# Probes the production site every 15 minutes. On failure it opens (or keeps)
+# a single "site is DOWN" issue — GitHub emails the repo owner — and closes it
+# with a note when the site recovers. No secrets required.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check endpoints
+        id: check
+        run: |
+          fail=""
+          for url in "https://www.flowroll.xyz/" "https://www.flowroll.xyz/login"; do
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 30 "$url" || echo "000")
+            echo "$url -> $code"
+            [ "$code" = "200" ] || fail="$fail $url($code)"
+          done
+          # keepalive proves the DB round-trip works (this is what caught the
+          # July 2026 Supabase pause outage class of failure)
+          body=$(curl -sS --max-time 30 "https://www.flowroll.xyz/api/keepalive" || echo "")
+          echo "keepalive -> $body"
+          echo "$body" | grep -q '"ok":true' || fail="$fail keepalive-db-check"
+          echo "fail=$(echo $fail)" >> "$GITHUB_OUTPUT"
+
+      - name: Open, hold, or resolve the alert issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          FAIL: ${{ steps.check.outputs.fail }}
+        run: |
+          existing=$(gh issue list -R "$REPO" --label uptime --state open --json number --jq '.[0].number // empty')
+          if [ -n "$FAIL" ]; then
+            if [ -z "$existing" ]; then
+              gh issue create -R "$REPO" --label uptime \
+                --title "🔴 www.flowroll.xyz is DOWN" \
+                --body "Failing checks: $FAIL — first seen $(date -u '+%Y-%m-%d %H:%M UTC'). This issue auto-closes when checks pass again."
+            fi
+            echo "::error::Site check failing: $FAIL"
+            exit 1
+          elif [ -n "$existing" ]; then
+            gh issue comment -R "$REPO" "$existing" --body "✅ Recovered at $(date -u '+%Y-%m-%d %H:%M UTC')."
+            gh issue close -R "$REPO" "$existing"
+          fi
