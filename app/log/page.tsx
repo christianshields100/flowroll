@@ -7,7 +7,7 @@ import { LogForm } from "./LogForm";
 export default async function LogPage({
   searchParams,
 }: {
-  searchParams: { edit?: string };
+  searchParams: { edit?: string; d?: string; min?: string };
 }) {
   const supabase = createClient();
   const {
@@ -99,6 +99,12 @@ export default async function LogPage({
         <LogForm
           key={editSession?.id ?? "new"}
           uid={user!.id}
+          prefillDate={/^\d{4}-\d{2}-\d{2}$/.test(searchParams.d ?? "") ? searchParams.d! : undefined}
+          prefillMinutes={
+            searchParams.min && Number(searchParams.min) > 0
+              ? Number(searchParams.min)
+              : undefined
+          }
           defaultGym={defaultGym}
           defaultGymPlaceId={defaultGymPlaceId}
           subSuggestions={subSuggestions}

@@ -646,3 +646,95 @@ create policy "session-media: delete own folder"
     bucket_id = 'session-media'
     and (storage.foldername(name))[1] = auth.uid()::text
   );
+
+------------------------------------------------------------
+-- v9: WHOOP integration — per-user OAuth tokens, synced day metrics
+-- (strain/recovery/sleep) and workouts. All owner-only under RLS; the
+-- webhook can only flip a needs_sync flag (never read tokens or write data).
+------------------------------------------------------------
+
+create table if not exists public.whoop_connections (
+  user_id        uuid primary key references auth.users(id) on delete cascade,
+  whoop_user_id  bigint not null,
+  access_token   text not null,
+  refresh_token  text not null,
+  expires_at     timestamptz not null,
+  scopes         text,
+  needs_sync     boolean not null default false,
+  last_synced_at timestamptz,
+  created_at     timestamptz not null default now()
+);
+create index if not exists whoop_connections_whoop_user_idx
+  on public.whoop_connections (whoop_user_id);
+
+-- One row per physiological day.
+create table if not exists public.whoop_cycles (
+  user_id           uuid not null references auth.users(id) on delete cascade,
+  day               date not null,
+  day_strain        numeric,
+  recovery_score    numeric,
+  hrv_ms            numeric,
+  resting_hr        numeric,
+  sleep_performance numeric,
+  sleep_hours       numeric,
+  updated_at        timestamptz not null default now(),
+  primary key (user_id, day)
+);
+
+create table if not exists public.whoop_workouts (
+  id             uuid primary key, -- WHOOP v2 workout UUID
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  started_at     timestamptz not null,
+  ended_at       timestamptz not null,
+  local_date     date,
+  sport          text,
+  strain         numeric,
+  avg_hr         numeric,
+  max_hr         numeric,
+  kilojoules     numeric,
+  session_id     uuid references public.sessions(id) on delete set null,
+  nudge_dismissed boolean not null default false,
+  updated_at     timestamptz not null default now()
+);
+create index if not exists whoop_workouts_user_started_idx
+  on public.whoop_workouts (user_id, started_at desc);
+
+alter table public.whoop_connections enable row level security;
+alter table public.whoop_cycles      enable row level security;
+alter table public.whoop_workouts    enable row level security;
+
+drop policy if exists "whoop_connections: own" on public.whoop_connections;
+create policy "whoop_connections: own"
+  on public.whoop_connections for all
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "whoop_cycles: own" on public.whoop_cycles;
+create policy "whoop_cycles: own"
+  on public.whoop_cycles for all
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+drop policy if exists "whoop_workouts: own" on public.whoop_workouts;
+create policy "whoop_workouts: own"
+  on public.whoop_workouts for all
+  to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+-- Called by the (cookie-less) webhook route after signature verification.
+-- Deliberately minimal: it can only request a re-sync for an already-connected
+-- WHOOP user — no token access, no data writes — so a forged call with the
+-- anon key can at worst trigger an extra sync.
+create or replace function public.whoop_mark_needs_sync(p_whoop_user_id bigint)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.whoop_connections
+     set needs_sync = true
+   where whoop_user_id = p_whoop_user_id;
+$$;

@@ -33,9 +33,26 @@ Then open <http://localhost:3000>.
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<your publishable / anon key>
-NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used by magic-link redirects
+NEXT_PUBLIC_SITE_URL=http://localhost:3000   # used by magic-link + WHOOP redirects
 ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach chatbot
+# Optional integrations (each feature no-ops when its vars are unset):
+WHOOP_CLIENT_ID=...                          # WHOOP OAuth app (developer-dashboard.whoop.com)
+WHOOP_CLIENT_SECRET=...                      # also verifies webhook signatures
+NEXT_PUBLIC_SENTRY_DSN=...                   # error monitoring
 ```
+
+### WHOOP integration
+
+Create an app at **developer-dashboard.whoop.com** with scopes
+`read:recovery read:cycles read:workout read:sleep read:profile offline`, set
+the redirect URL to `https://<your-domain>/api/whoop/callback`, and (optionally)
+the webhook URL to `/api/whoop/webhook`. Put the client id/secret in the env
+vars above. Users then hit **Connect WHOOP** in Settings. What it powers:
+strain/HR/calories on your own session cards; a recovery-vs-feel and
+strain-vs-mat-time chart on the dashboard; a Coach `get_whoop_data` tool
+("should I train today?"); auto-draft nudges when WHOOP logs a jiu-jitsu
+workout you haven't; and recovery context in the weekly recap. Health data is
+**owner-only** — followers never see it.
 
 (Gym autocomplete uses a free OpenStreetMap geocoder — no key required.)
 

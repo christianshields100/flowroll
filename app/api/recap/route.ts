@@ -57,6 +57,24 @@ export async function POST() {
 
   const rows = (sessionsData ?? []) as SessionRow[];
   const thisWeek = rows.filter((s) => s.trained_on >= weekKey);
+
+  // WHOOP recovery/strain for this week, if connected — lets the recap flag
+  // when training outpaced recovery.
+  const { data: whoopWeek } = await supabase
+    .from("whoop_cycles")
+    .select("day, day_strain, recovery_score, sleep_hours")
+    .eq("user_id", user.id)
+    .gte("day", weekKey)
+    .order("day", { ascending: true });
+  const whoopLine = (whoopWeek ?? [])
+    .map((d) => {
+      const b: string[] = [d.day];
+      if (d.recovery_score != null) b.push(`rec ${Math.round(d.recovery_score)}%`);
+      if (d.day_strain != null) b.push(`strain ${Number(d.day_strain).toFixed(1)}`);
+      if (d.sleep_hours != null) b.push(`sleep ${d.sleep_hours}h`);
+      return b.join(" ");
+    })
+    .join("; ");
   const lastWeek = rows.filter((s) => s.trained_on < weekKey);
 
   if (thisWeek.length === 0) {
@@ -99,8 +117,9 @@ export async function POST() {
     submissionScorecard(thisWeek)
       ? `This week's submission scorecard (finished/caught, net): ${submissionScorecard(thisWeek)}`
       : ``,
+    whoopLine ? `This week's WHOOP (per day): ${whoopLine}` : ``,
     ``,
-    `Write 2-4 sentences, plain text only (no markdown, no greeting). Conversational, specific, second person. Mention concrete numbers or submissions or note themes where they stand out — volume vs last week, repeated catches, what they drilled. End with one short pointed suggestion.`,
+    `Write 2-4 sentences, plain text only (no markdown, no greeting). Conversational, specific, second person. Mention concrete numbers or submissions or note themes where they stand out — volume vs last week, repeated catches, what they drilled. If WHOOP data is present and notable, weave in one recovery/strain observation (e.g. training hard on low-recovery days). End with one short pointed suggestion.`,
   ].join("\n");
 
   const anthropic = new Anthropic();

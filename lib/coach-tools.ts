@@ -78,6 +78,24 @@ export const COACH_TOOL_DEFINITIONS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "get_whoop_data",
+    description:
+      "The athlete's WHOOP data over a date range: per-day recovery score, day strain, HRV, resting HR, sleep performance and hours, plus individual workouts (strain, avg/max HR). Use for readiness questions ('should I train hard today?'), recovery/strain trends, and correlating physiology with how sessions felt. Returns a note if WHOOP isn't connected.",
+    input_schema: {
+      type: "object",
+      properties: {
+        from: {
+          type: "string",
+          description: "Earliest date, YYYY-MM-DD (inclusive). Defaults to 14 days ago.",
+        },
+        to: {
+          type: "string",
+          description: "Latest date, YYYY-MM-DD (inclusive). Defaults to today.",
+        },
+      },
+    },
+  },
+  {
     name: "log_session",
     description:
       "Save a NEW training session to the athlete's log. Call this ONLY after you've shown the athlete the exact structured session you're about to save and they explicitly confirmed it in their latest message. Never call it speculatively.",
@@ -210,6 +228,70 @@ export async function runCoachTool(
       return [`Submission scorecard (${range}), across ${rows.length} sessions:`, ...lines].join(
         "\n",
       );
+    }
+
+    if (name === "get_whoop_data") {
+      const to = args.to && DATE_RE.test(args.to) ? args.to : undefined;
+      const from = args.from && DATE_RE.test(args.from) ? args.from : undefined;
+      const toDate = to ?? new Date().toISOString().slice(0, 10);
+      const fromDate =
+        from ??
+        new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+
+      const { data: conn } = await supabase
+        .from("whoop_connections")
+        .select("user_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (!conn)
+        return "WHOOP isn't connected. The athlete can connect it in Settings for recovery/strain data.";
+
+      const [{ data: days }, { data: workouts }] = await Promise.all([
+        supabase
+          .from("whoop_cycles")
+          .select(
+            "day, day_strain, recovery_score, hrv_ms, resting_hr, sleep_performance, sleep_hours",
+          )
+          .eq("user_id", userId)
+          .gte("day", fromDate)
+          .lte("day", toDate)
+          .order("day", { ascending: false }),
+        supabase
+          .from("whoop_workouts")
+          .select("local_date, sport, strain, avg_hr, max_hr")
+          .eq("user_id", userId)
+          .gte("local_date", fromDate)
+          .lte("local_date", toDate)
+          .order("local_date", { ascending: false }),
+      ]);
+
+      const dayLines = (days ?? []).map((d) => {
+        const bits = [`${d.day}:`];
+        if (d.recovery_score != null) bits.push(`recovery ${Math.round(d.recovery_score)}%`);
+        if (d.day_strain != null) bits.push(`strain ${Number(d.day_strain).toFixed(1)}`);
+        if (d.hrv_ms != null) bits.push(`HRV ${Math.round(d.hrv_ms)}ms`);
+        if (d.resting_hr != null) bits.push(`RHR ${Math.round(d.resting_hr)}`);
+        if (d.sleep_hours != null) bits.push(`sleep ${d.sleep_hours}h`);
+        if (d.sleep_performance != null) bits.push(`sleep-perf ${Math.round(d.sleep_performance)}%`);
+        return bits.join(" ");
+      });
+      const woLines = (workouts ?? []).map(
+        (w) =>
+          `${w.local_date}: ${w.sport ?? "workout"}${
+            w.strain != null ? ` strain ${Number(w.strain).toFixed(1)}` : ""
+          }${w.avg_hr != null ? ` avg ${Math.round(w.avg_hr)}bpm` : ""}${
+            w.max_hr != null ? ` max ${Math.round(w.max_hr)}` : ""
+          }`,
+      );
+      if (!dayLines.length && !woLines.length)
+        return `No WHOOP data in ${fromDate}..${toDate}.`;
+      return [
+        `WHOOP ${fromDate}..${toDate}`,
+        dayLines.length ? "Daily:\n" + dayLines.join("\n") : "",
+        woLines.length ? "Workouts:\n" + woLines.join("\n") : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
     }
 
     if (name === "log_session") {

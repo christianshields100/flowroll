@@ -6,24 +6,49 @@ import { BeltStripePicker } from "@/components/BeltStripePicker";
 import { GymPicker } from "@/components/GymPicker";
 import { displayName } from "@/lib/profile";
 import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
+import { WhoopCard } from "./WhoopCard";
+import { whoopConfigured } from "@/lib/whoop";
 import { updateProfile } from "./actions";
+
+const WHOOP_NOTICES: Record<string, string> = {
+  connected: "WHOOP connected — your recent data is syncing in.",
+  denied: "WHOOP connection was cancelled.",
+  state: "Connection expired, please try again.",
+  exchange: "Couldn't complete the WHOOP handshake — try again.",
+  profile: "Connected, but couldn't read your WHOOP profile — try Sync now.",
+  unconfigured: "WHOOP isn't configured on this deployment yet.",
+};
 
 const inputCls =
   "w-full bg-paper border border-paper-line rounded-sm px-3 py-2.5 text-ink placeholder:text-ink-mute focus:outline-none focus:border-accent transition";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: { whoop?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select(
-      "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
-    )
-    .eq("id", user!.id)
-    .single();
+  const [{ data: profile }, { data: whoop }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
+      )
+      .eq("id", user!.id)
+      .single(),
+    supabase
+      .from("whoop_connections")
+      .select("last_synced_at")
+      .eq("user_id", user!.id)
+      .maybeSingle(),
+  ]);
+  const whoopNotice = searchParams.whoop
+    ? WHOOP_NOTICES[searchParams.whoop]
+    : undefined;
 
   return (
     <AppShell profile={profile} active={null}>
@@ -114,6 +139,12 @@ export default async function SettingsPage() {
           Save changes
         </button>
       </form>
+
+      <WhoopCard
+        configured={whoopConfigured()}
+        connection={whoop ?? null}
+        notice={whoopNotice}
+      />
     </AppShell>
   );
 }

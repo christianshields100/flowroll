@@ -7,6 +7,7 @@ import { BeltChip, SessionCard, type Belt } from "@/components/SessionCard";
 import { SessionSocial } from "@/components/SessionSocial";
 import { formatHours, sessionTotals, type SessionRow } from "@/lib/stats";
 import { fetchSessionSocial } from "@/lib/social";
+import { maybeSyncWhoop, whoopBySession, type WhoopWorkout } from "@/lib/whoop";
 import { follow, unfollow } from "@/app/feed/actions";
 import { displayName, hasFullName } from "@/lib/profile";
 
@@ -85,6 +86,13 @@ export default async function ProfilePage({
     canView ? rows.map((s) => ({ id: s.id, user_id: target.id })) : [],
     me,
   );
+
+  // WHOOP metrics only on your OWN profile (health data stays private).
+  let whoopBySessionId = new Map<string, WhoopWorkout>();
+  if (isMe) {
+    await maybeSyncWhoop(me);
+    whoopBySessionId = await whoopBySession(supabase, me);
+  }
 
   return (
     <AppShell profile={myProfile} active={null}>
@@ -240,6 +248,7 @@ export default async function ProfilePage({
                   <SessionCard
                     key={s.id}
                     session={s}
+                    whoop={isMe ? whoopBySessionId.get(s.id) : null}
                     footer={
                       <SessionSocial
                         sessionId={s.id}

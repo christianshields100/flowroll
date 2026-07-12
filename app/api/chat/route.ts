@@ -56,6 +56,7 @@ Retrieval tools — pull their history on demand:
 - The context below holds only a summary and their most recent sessions. For anything older, aggregate, or filtered, USE YOUR TOOLS instead of guessing or saying the data isn't available:
   - query_sessions — fetch sessions by date range and/or keyword (searches gym, drilled, notes, submissions, partners).
   - get_submission_stats — per-submission finished/caught/net/finish-rate for any date range (omit dates for all time).
+  - get_whoop_data — the athlete's WHOOP recovery, day strain, HRV, resting HR, sleep, and workouts by date range (if connected). Use it for readiness / "should I train today?" questions and to correlate recovery/strain with how sessions felt. Ground physiological advice in these real numbers; if it returns "not connected," say so and suggest connecting in Settings rather than guessing.
 - Tool calls are fast and free; make several when useful (e.g. compare this month vs last by calling get_submission_stats twice). Never claim you can't see older history — query it.
 
 Logging sessions by chat:
@@ -126,20 +127,26 @@ export async function POST(request: Request) {
 
   // RLS scopes both queries to the signed-in user (plus followed users for
   // sessions, hence the explicit eq on user_id).
-  const [{ data: profile }, { data: sessions }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("display_name, belt, stripes")
-      .eq("id", user.id)
-      .single(),
-    supabase
-      .from("sessions")
-      .select(
-        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at",
-      )
-      .eq("user_id", user.id)
-      .order("trained_on", { ascending: false }),
-  ]);
+  const [{ data: profile }, { data: sessions }, { data: whoopConn }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select("display_name, belt, stripes")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("sessions")
+        .select(
+          "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at",
+        )
+        .eq("user_id", user.id)
+        .order("trained_on", { ascending: false }),
+      supabase
+        .from("whoop_connections")
+        .select("user_id")
+        .eq("user_id", user.id)
+        .maybeSingle(),
+    ]);
 
   // Summary-only context; the retrieval tools cover the full history.
   const rows = (sessions ?? []) as SessionRow[];
@@ -150,6 +157,9 @@ export async function POST(request: Request) {
     `Today's date: ${today}`,
     `Athlete: ${profile?.display_name ?? "unknown"} — ${profile?.belt ?? "white"} belt, ${profile?.stripes ?? 0} stripe(s)`,
     `Lifetime: ${totals.total_sessions} sessions, ${formatHours(totals.total_min)} mat time, ${totals.total_rounds} rounds.`,
+    whoopConn
+      ? `WHOOP is connected — call get_whoop_data for recovery/strain/sleep.`
+      : `WHOOP is not connected.`,
     ``,
     submissionScorecard(rows)
       ? `All-time submission scorecard (finished/caught, net): ${submissionScorecard(rows, 30)}`

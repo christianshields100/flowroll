@@ -24,6 +24,8 @@ export function LogForm({
   subSuggestions,
   partnerSuggestions,
   editSession = null,
+  prefillDate,
+  prefillMinutes,
 }: {
   uid: string;
   defaultGym: string | null;
@@ -32,6 +34,9 @@ export function LogForm({
   partnerSuggestions: string[];
   // When set, the form edits this session instead of creating a new one.
   editSession?: SessionRow | null;
+  // From a WHOOP "log this workout" nudge — prefill date/duration for a new entry.
+  prefillDate?: string;
+  prefillMinutes?: number;
 }) {
   const editing = editSession !== null;
   const [state, formAction] = useFormState(
@@ -62,7 +67,7 @@ export function LogForm({
             type="date"
             name="trained_on"
             required
-            defaultValue={editSession?.trained_on ?? todayISO()}
+            defaultValue={editSession?.trained_on ?? prefillDate ?? todayISO()}
             className={inputCls}
           />
         </Field>
@@ -74,7 +79,7 @@ export function LogForm({
             min={1}
             max={599}
             placeholder="60"
-            defaultValue={editSession?.duration_min ?? ""}
+            defaultValue={editSession?.duration_min ?? prefillMinutes ?? ""}
             className={inputCls}
           />
         </Field>
