@@ -21,10 +21,12 @@ export function whoopConfigured(): boolean {
 }
 
 export function whoopRedirectUri(): string {
-  const base =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "") ||
-    "https://www.flowroll.xyz";
-  return `${base}/api/whoop/callback`;
+  // Must EXACTLY match a redirect URL registered in the WHOOP app. Pin it to
+  // the canonical production URL (or an explicit override for local dev) rather
+  // than deriving from NEXT_PUBLIC_SITE_URL, which may be an apex/preview/
+  // localhost value that wouldn't match what's registered and breaks OAuth.
+  const override = process.env.WHOOP_REDIRECT_URL?.replace(/\/$/, "");
+  return override || "https://www.flowroll.xyz/api/whoop/callback";
 }
 
 export function whoopAuthUrl(state: string): string {
