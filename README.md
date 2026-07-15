@@ -39,6 +39,7 @@ ANTHROPIC_API_KEY=sk-ant-...                 # server-only — powers the Coach 
 WHOOP_CLIENT_ID=...                          # WHOOP OAuth app (developer-dashboard.whoop.com)
 WHOOP_CLIENT_SECRET=...                      # also verifies webhook signatures
 NEXT_PUBLIC_SENTRY_DSN=...                   # error monitoring
+YOUTUBE_API_KEY=...                          # YouTube Data API v3 — study video shelves + Coach find_videos
 ```
 
 ### WHOOP integration
@@ -55,6 +56,26 @@ workout you haven't; and recovery context in the weekly recap. Health data is
 **owner-only** — followers never see it.
 
 (Gym autocomplete uses a free OpenStreetMap geocoder — no key required.)
+
+### Public REST API
+
+Docs live at [`/developers`](https://www.flowroll.xyz/developers). Users mint
+bearer keys (`frk_…`, shown once, sha256-stored) in **Settings → Developer**,
+optionally with write scope. Endpoints under `/api/v1`: `me`, `sessions`
+(GET list / GET by id / POST), `stats`. Auth, scopes, and a 1,000 req/day
+quota are enforced inside SECURITY DEFINER RPCs (`api_authenticate` +
+`api_get_*`/`api_create_session`), so every query is scoped to the key's
+owner — the route handlers only ever hold the anon client. CORS is open
+(`*`) since keys are the credential.
+
+### YouTube study suggestions
+
+Set `YOUTUBE_API_KEY` (Google Cloud → enable **YouTube Data API v3** → create
+an API key — the default free quota needs no billing account). The dashboard
+then grows a **Study** section: escape videos for the submission that catches
+you most, detail videos for your best weapon. Coach also gains a
+`find_videos` tool. Searches are cached in `study_cache` for 7 days (shared
+across users) to stay far under the 100-searches/day free quota.
 
 ### Supabase setup
 
