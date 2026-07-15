@@ -5,9 +5,16 @@ import {
   isoDate,
   periodBuckets,
   sessionTotals,
+  submissionStats,
   weekStart,
   type SessionRow,
 } from "@/lib/stats";
+import { StudyShelf } from "./StudyShelf";
+import {
+  searchStudyVideos,
+  youtubeConfigured,
+  type StudyVideo,
+} from "@/lib/youtube";
 import { VolumeViews } from "./VolumeViews";
 import { SubmissionLedger } from "./SubmissionLedger";
 import { StreakTile } from "./StreakTile";
@@ -136,6 +143,39 @@ export default async function DashboardPage() {
     });
   }
 
+  // --- Study shelves (YouTube; ships dark until YOUTUBE_API_KEY is set) ---
+  let studyShelves: { tag: string; title: string; videos: StudyVideo[] }[] =
+    [];
+  if (youtubeConfigured() && rows.length > 0) {
+    const subs = submissionStats(rows);
+    const nemesis = subs
+      .filter((s) => s.caught > 0)
+      .sort((a, b) => b.caught - a.caught || a.net - b.net)[0];
+    const sharpest = subs
+      .filter((s) => s.hit > 0)
+      .sort((a, b) => b.hit - a.hit || b.net - a.net)[0];
+    const wants: { tag: string; title: string; query: string }[] = [];
+    if (nemesis)
+      wants.push({
+        tag: "Nemesis",
+        title: `Escaping the ${nemesis.name} (caught ${nemesis.caught}×)`,
+        query: `${nemesis.name} escape bjj`,
+      });
+    if (sharpest && sharpest.name !== nemesis?.name)
+      wants.push({
+        tag: "Weapon",
+        title: `Sharpening your ${sharpest.name} (${sharpest.hit} finishes)`,
+        query: `${sharpest.name} details bjj`,
+      });
+    studyShelves = await Promise.all(
+      wants.map(async (w) => ({
+        tag: w.tag,
+        title: w.title,
+        videos: await searchStudyVideos(supabase, w.query, 4),
+      })),
+    );
+  }
+
   return (
     <AppShell profile={profile} active="dashboard">
       <p className="font-mono text-xs uppercase tracking-dojo text-ink-mute">
@@ -205,6 +245,8 @@ export default async function DashboardPage() {
               </div>
             </section>
           )}
+
+          <StudyShelf shelves={studyShelves} />
 
           <section className="grid lg:grid-cols-2 gap-6">
             <div>

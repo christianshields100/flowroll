@@ -3,6 +3,7 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { submissionStats, type SessionRow } from "@/lib/stats";
+import { searchStudyVideos, videoUrl, youtubeConfigured } from "@/lib/youtube";
 
 // Coach's retrieval tools. The chat context only carries a summary + the most
 // recent sessions; these let the model pull older or aggregate data on demand
@@ -93,6 +94,22 @@ export const COACH_TOOL_DEFINITIONS: Anthropic.Tool[] = [
           description: "Latest date, YYYY-MM-DD (inclusive). Defaults to today.",
         },
       },
+    },
+  },
+  {
+    name: "find_videos",
+    description:
+      "Search YouTube for BJJ instructional videos on a specific technique or problem (e.g. 'armbar escape', 'half guard sweeps'). Returns titles, channels, and links. Use when the athlete asks what to study or when recommending drills for a weakness. Prefer specific queries over broad ones.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description:
+            "Search query. Technique + intent, e.g. 'triangle escape', 'knee cut pass details'. 'bjj' is appended automatically if missing.",
+        },
+      },
+      required: ["query"],
     },
   },
   {
@@ -292,6 +309,20 @@ export async function runCoachTool(
       ]
         .filter(Boolean)
         .join("\n");
+    }
+
+    if (name === "find_videos") {
+      const q = String((input as { query?: string })?.query ?? "").trim();
+      if (!q) return "Provide a search query.";
+      if (!youtubeConfigured())
+        return "Video search isn't configured on this deployment — suggest techniques by name instead and mention they can search YouTube.";
+      const query = /\bbjj|jiu/i.test(q) ? q : `${q} bjj`;
+      const videos = await searchStudyVideos(supabase, query, 5);
+      if (!videos.length) return `No videos found for "${query}".`;
+      return [
+        `Videos for "${query}" (share as markdown links):`,
+        ...videos.map((v) => `- [${v.title}](${videoUrl(v)}) — ${v.channel}`),
+      ].join("\n");
     }
 
     if (name === "log_session") {

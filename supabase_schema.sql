@@ -738,3 +738,197 @@ as $$
      set needs_sync = true
    where whoop_user_id = p_whoop_user_id;
 $$;
+
+-- ============================================================
+-- v10: Public REST API keys + YouTube study cache
+-- ============================================================
+
+-- Per-user API keys for the public REST API (/api/v1). The raw key is shown
+-- once at creation; only its sha256 hex lands here. `prefix` is the first
+-- few characters, kept for display ("frk_a1b2c3…").
+create table if not exists public.api_keys (
+  id           uuid primary key default gen_random_uuid(),
+  user_id      uuid not null references auth.users(id) on delete cascade,
+  name         text not null check (char_length(name) between 1 and 60),
+  prefix       text not null,
+  key_hash     text not null unique,
+  scopes       text[] not null default '{read}',
+  created_at   timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked      boolean not null default false
+);
+
+create index if not exists api_keys_user_idx on public.api_keys (user_id);
+
+alter table public.api_keys enable row level security;
+
+drop policy if exists "api_keys_select_own" on public.api_keys;
+create policy "api_keys_select_own" on public.api_keys
+  for select using (auth.uid() = user_id);
+drop policy if exists "api_keys_insert_own" on public.api_keys;
+create policy "api_keys_insert_own" on public.api_keys
+  for insert with check (auth.uid() = user_id);
+drop policy if exists "api_keys_update_own" on public.api_keys;
+create policy "api_keys_update_own" on public.api_keys
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+drop policy if exists "api_keys_delete_own" on public.api_keys;
+create policy "api_keys_delete_own" on public.api_keys
+  for delete using (auth.uid() = user_id);
+
+-- Daily request counts per key. No policies: only the SECURITY DEFINER
+-- functions below read or write it (same pattern as chat_usage).
+create table if not exists public.api_usage (
+  key_id uuid not null references public.api_keys(id) on delete cascade,
+  day    date not null,
+  count  integer not null default 0,
+  primary key (key_id, day)
+);
+alter table public.api_usage enable row level security;
+
+-- Shared cache of YouTube search results (public, non-sensitive data;
+-- keyed by normalized query). 7-day TTL enforced app-side.
+create table if not exists public.study_cache (
+  query      text primary key,
+  results    jsonb not null,
+  fetched_at timestamptz not null default now()
+);
+alter table public.study_cache enable row level security;
+drop policy if exists "study_cache_select" on public.study_cache;
+create policy "study_cache_select" on public.study_cache
+  for select to authenticated using (true);
+drop policy if exists "study_cache_insert" on public.study_cache;
+create policy "study_cache_insert" on public.study_cache
+  for insert to authenticated with check (true);
+drop policy if exists "study_cache_update" on public.study_cache;
+create policy "study_cache_update" on public.study_cache
+  for update to authenticated using (true) with check (true);
+
+-- Internal: validate a key hash, enforce scope + daily quota, touch
+-- last_used_at. Returns the owning user id. Raises invalid_api_key /
+-- insufficient_scope / rate_limited. Not granted to clients — only the
+-- api_* endpoint functions below call it.
+create or replace function public.api_authenticate(
+  p_key_hash text,
+  p_scope text default 'read',
+  p_daily_limit integer default 1000
+) returns uuid
+language plpgsql security definer set search_path = public
+as $$
+declare
+  k public.api_keys%rowtype;
+  n integer;
+begin
+  select * into k from public.api_keys
+   where key_hash = p_key_hash and not revoked;
+  if not found then
+    raise exception 'invalid_api_key';
+  end if;
+  if not (p_scope = any (k.scopes)) then
+    raise exception 'insufficient_scope';
+  end if;
+  insert into public.api_usage (key_id, day, count)
+  values (k.id, current_date, 1)
+  on conflict (key_id, day) do update set count = public.api_usage.count + 1
+  returning count into n;
+  if n > p_daily_limit then
+    raise exception 'rate_limited';
+  end if;
+  update public.api_keys set last_used_at = now() where id = k.id;
+  return k.user_id;
+end;
+$$;
+
+revoke execute on function public.api_authenticate(text, text, integer) from public, anon, authenticated;
+
+-- GET /api/v1/me
+create or replace function public.api_get_profile(p_key_hash text)
+returns table (
+  id uuid, display_name text, first_name text, last_name text,
+  belt text, stripes smallint, home_gym_name text, created_at timestamptz
+)
+language plpgsql security definer set search_path = public
+as $$
+declare uid uuid;
+begin
+  uid := public.api_authenticate(p_key_hash, 'read');
+  return query
+    select p.id, p.display_name, p.first_name, p.last_name,
+           p.belt, p.stripes, p.home_gym_name, p.created_at
+      from public.profiles p
+     where p.id = uid;
+end;
+$$;
+
+-- GET /api/v1/sessions (and /api/v1/stats, which aggregates app-side)
+create or replace function public.api_get_sessions(
+  p_key_hash text,
+  p_from date default null,
+  p_to date default null,
+  p_limit integer default 50,
+  p_offset integer default 0
+) returns setof public.sessions
+language plpgsql security definer set search_path = public
+as $$
+declare uid uuid;
+begin
+  uid := public.api_authenticate(p_key_hash, 'read');
+  return query
+    select * from public.sessions s
+     where s.user_id = uid
+       and (p_from is null or s.trained_on >= p_from)
+       and (p_to is null or s.trained_on <= p_to)
+     order by s.trained_on desc, s.created_at desc
+     limit least(greatest(coalesce(p_limit, 50), 1), 200)
+    offset greatest(coalesce(p_offset, 0), 0);
+end;
+$$;
+
+-- GET /api/v1/sessions/:id
+create or replace function public.api_get_session(p_key_hash text, p_id uuid)
+returns setof public.sessions
+language plpgsql security definer set search_path = public
+as $$
+declare uid uuid;
+begin
+  uid := public.api_authenticate(p_key_hash, 'read');
+  return query
+    select * from public.sessions s where s.id = p_id and s.user_id = uid;
+end;
+$$;
+
+-- POST /api/v1/sessions (requires the 'write' scope)
+create or replace function public.api_create_session(
+  p_key_hash text,
+  p_trained_on date,
+  p_duration_min integer,
+  p_rounds integer default 0,
+  p_gym text default null,
+  p_feel smallint default 3,
+  p_subs_hit text[] default '{}',
+  p_subs_caught_in text[] default '{}',
+  p_partners text[] default '{}',
+  p_drilled text default null,
+  p_note text default null
+) returns public.sessions
+language plpgsql security definer set search_path = public
+as $$
+declare uid uuid; s public.sessions;
+begin
+  uid := public.api_authenticate(p_key_hash, 'write');
+  insert into public.sessions
+    (user_id, trained_on, duration_min, rounds, gym, feel,
+     subs_hit, subs_caught_in, partners, drilled, note)
+  values
+    (uid, p_trained_on, p_duration_min, coalesce(p_rounds, 0), p_gym,
+     coalesce(p_feel, 3), coalesce(p_subs_hit, '{}'),
+     coalesce(p_subs_caught_in, '{}'), coalesce(p_partners, '{}'),
+     p_drilled, p_note)
+  returning * into s;
+  return s;
+end;
+$$;
+
+grant execute on function public.api_get_profile(text) to anon, authenticated;
+grant execute on function public.api_get_sessions(text, date, date, integer, integer) to anon, authenticated;
+grant execute on function public.api_get_session(text, uuid) to anon, authenticated;
+grant execute on function public.api_create_session(text, date, integer, integer, text, smallint, text[], text[], text[], text, text) to anon, authenticated;

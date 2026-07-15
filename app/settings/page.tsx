@@ -7,6 +7,7 @@ import { GymPicker } from "@/components/GymPicker";
 import { displayName } from "@/lib/profile";
 import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
 import { WhoopCard } from "./WhoopCard";
+import { ApiKeysCard } from "./ApiKeysCard";
 import { whoopConfigured } from "@/lib/whoop";
 import { updateProfile } from "./actions";
 
@@ -32,20 +33,26 @@ export default async function SettingsPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: whoop }] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
-      )
-      .eq("id", user!.id)
-      .single(),
-    supabase
-      .from("whoop_connections")
-      .select("last_synced_at")
-      .eq("user_id", user!.id)
-      .maybeSingle(),
-  ]);
+  const [{ data: profile }, { data: whoop }, { data: apiKeys }] =
+    await Promise.all([
+      supabase
+        .from("profiles")
+        .select(
+          "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
+        )
+        .eq("id", user!.id)
+        .single(),
+      supabase
+        .from("whoop_connections")
+        .select("last_synced_at")
+        .eq("user_id", user!.id)
+        .maybeSingle(),
+      supabase
+        .from("api_keys")
+        .select("id, name, prefix, scopes, created_at, last_used_at")
+        .eq("revoked", false)
+        .order("created_at", { ascending: false }),
+    ]);
   const whoopNotice = searchParams.whoop
     ? WHOOP_NOTICES[searchParams.whoop]
     : undefined;
@@ -145,6 +152,8 @@ export default async function SettingsPage({
         connection={whoop ?? null}
         notice={whoopNotice}
       />
+
+      <ApiKeysCard keys={apiKeys ?? []} />
     </AppShell>
   );
 }
