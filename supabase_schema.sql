@@ -932,3 +932,36 @@ grant execute on function public.api_get_profile(text) to anon, authenticated;
 grant execute on function public.api_get_sessions(text, date, date, integer, integer) to anon, authenticated;
 grant execute on function public.api_get_session(text, uuid) to anon, authenticated;
 grant execute on function public.api_create_session(text, date, integer, integer, text, smallint, text[], text[], text[], text, text) to anon, authenticated;
+
+-- ============================================================
+-- v11: In-app feedback + lightweight visit tracking
+-- ============================================================
+
+-- Once-per-day visit counter, bumped by the dashboard. Powers the
+-- "you've been here a few times — how's it going?" feedback prompt.
+alter table public.profiles
+  add column if not exists visit_count integer not null default 0,
+  add column if not exists last_seen_on date,
+  add column if not exists feedback_dismissed_at timestamptz;
+
+-- User feedback, one row per submission. Read it straight from the
+-- Supabase table editor / SQL (order by created_at desc).
+create table if not exists public.feedback (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  rating     smallint check (rating between 1 and 5),
+  message    text not null check (char_length(message) between 1 and 2000),
+  context    text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists feedback_created_idx on public.feedback (created_at desc);
+
+alter table public.feedback enable row level security;
+
+drop policy if exists "feedback_insert_own" on public.feedback;
+create policy "feedback_insert_own" on public.feedback
+  for insert with check (auth.uid() = user_id);
+drop policy if exists "feedback_select_own" on public.feedback;
+create policy "feedback_select_own" on public.feedback
+  for select using (auth.uid() = user_id);

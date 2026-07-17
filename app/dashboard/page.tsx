@@ -10,6 +10,7 @@ import {
   type SessionRow,
 } from "@/lib/stats";
 import { StudyShelf } from "./StudyShelf";
+import { FeedbackCard } from "@/components/FeedbackCard";
 import {
   searchStudyVideos,
   youtubeConfigured,
@@ -38,9 +39,24 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, display_name, first_name, last_name, belt, stripes, avatar_url")
+    .select(
+      "id, display_name, first_name, last_name, belt, stripes, avatar_url, visit_count, last_seen_on, feedback_dismissed_at",
+    )
     .eq("id", user!.id)
     .single();
+
+  // Once-a-day visit counter; after 3 distinct days the feedback prompt
+  // appears (until dismissed or answered).
+  const todayIso = isoDate(new Date());
+  let visitCount = profile?.visit_count ?? 0;
+  if (profile && profile.last_seen_on !== todayIso) {
+    visitCount += 1;
+    await supabase
+      .from("profiles")
+      .update({ visit_count: visitCount, last_seen_on: todayIso })
+      .eq("id", user!.id);
+  }
+  const showFeedback = visitCount >= 3 && !profile?.feedback_dismissed_at;
 
   // Pull all your sessions, newest first. One user's history is small.
   const { data: sessions } = await supabase
@@ -221,6 +237,10 @@ export default async function DashboardPage() {
           <StreakTile streak={streak} totals={totals} />
 
           <WeeklyRecap />
+
+          {showFeedback && (
+            <FeedbackCard mode="prompt" context="dashboard-prompt" />
+          )}
 
           <VolumeViews daily={daily} weekly={weekly} monthly={monthly} />
 

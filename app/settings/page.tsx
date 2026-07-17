@@ -8,6 +8,7 @@ import { displayName } from "@/lib/profile";
 import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
 import { WhoopCard } from "./WhoopCard";
 import { ApiKeysCard } from "./ApiKeysCard";
+import { FeedbackCard } from "@/components/FeedbackCard";
 import { whoopConfigured } from "@/lib/whoop";
 import { updateProfile } from "./actions";
 
@@ -154,6 +155,10 @@ export default async function SettingsPage({
       />
 
       <ApiKeysCard keys={apiKeys ?? []} />
+
+      <section className="mt-12 max-w-2xl">
+        <FeedbackCard mode="always" context="settings" />
+      </section>
     </AppShell>
   );
 }
