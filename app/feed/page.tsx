@@ -514,7 +514,7 @@ function SessionCard({
     day: "numeric",
   });
   return (
-    <li className="rounded-sm bg-paper-raised border border-paper-line p-5">
+    <li className="border-t border-ink pt-4 pb-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {author ? (
@@ -523,30 +523,31 @@ function SessionCard({
               className="flex items-center gap-3 min-w-0 group"
             >
               <Avatar url={author.avatar_url} name={displayName(author)} belt={author.belt} size="sm" />
-              <span className="font-display text-base tracking-tightish truncate group-hover:text-accent transition">
+              <span className="text-[15px] font-semibold tracking-tightish truncate group-hover:text-accent transition-colors">
                 {displayName(author)}
               </span>
             </Link>
           ) : (
-            <span className="font-display text-base tracking-tightish truncate">
+            <span className="text-[15px] font-semibold tracking-tightish truncate">
               Unknown
             </span>
           )}
-          <span className="font-mono text-[11px] uppercase tracking-dojo text-ink-mute">
+          <span className="text-[11px] uppercase tracking-dojo text-ink-mute">
             {date}
             {session.gym ? ` · ${session.gym}` : ""}
           </span>
         </div>
-        <span className="font-mono text-[11px] num text-ink-dim whitespace-nowrap">
-          {session.duration_min}m · {session.rounds}r
+        <span className="text-[13px] num text-ink-dim whitespace-nowrap">
+          {session.duration_min} min · {session.rounds}{" "}
+          {session.rounds === 1 ? "round" : "rounds"}
         </span>
       </div>
 
       {session.drilled && (
-        <p className="mt-3 text-sm text-ink">{session.drilled}</p>
+        <p className="mt-3 text-sm text-ink leading-relaxed">{session.drilled}</p>
       )}
       {session.note && (
-        <p className="mt-1 text-sm text-ink-dim italic">{session.note}</p>
+        <p className="mt-1 text-sm text-ink-dim italic leading-relaxed">{session.note}</p>
       )}
 
       {(session.subs_hit?.length || session.subs_caught_in?.length || session.partners?.length) ? (
@@ -554,7 +555,7 @@ function SessionCard({
           {session.subs_hit?.map((x, i) => (
             <span
               key={`h-${i}`}
-              className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-accent/10 text-accent border border-accent/30"
+              className="text-[11px] px-2.5 py-0.5 border border-accent text-accent"
             >
               {x}
             </span>
@@ -562,7 +563,7 @@ function SessionCard({
           {session.subs_caught_in?.map((x, i) => (
             <span
               key={`c-${i}`}
-              className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-black/10 text-belt-black border border-belt-black/30"
+              className="text-[11px] px-2.5 py-0.5 border border-ink text-ink"
             >
               ✗ {x}
             </span>
@@ -570,7 +571,7 @@ function SessionCard({
           {session.partners?.map((x, i) => (
             <span
               key={`p-${i}`}
-              className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-blue/10 text-belt-blue border border-belt-blue/30"
+              className="text-[11px] px-2.5 py-0.5 border border-paper-input text-ink-dim"
             >
               w/ {x}
             </span>
