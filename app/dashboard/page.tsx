@@ -10,7 +10,7 @@ import {
   type SessionRow,
 } from "@/lib/stats";
 import { StudyShelf } from "./StudyShelf";
-import { FeedbackCard } from "@/components/FeedbackCard";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 import {
   searchStudyVideos,
   youtubeConfigured,
@@ -210,6 +210,8 @@ export default async function DashboardPage() {
       </h1>
       <div className="belt-rule mt-6 max-w-sm" />
 
+      {showFeedback && <FeedbackWidget context="dashboard-popup" />}
+
       {whoopNudges.length > 0 && (
         <div className="mt-6">
           <WhoopNudges nudges={whoopNudges} />
@@ -237,10 +239,6 @@ export default async function DashboardPage() {
           <StreakTile streak={streak} totals={totals} />
 
           <WeeklyRecap />
-
-          {showFeedback && (
-            <FeedbackCard mode="prompt" context="dashboard-prompt" />
-          )}
 
           <VolumeViews daily={daily} weekly={weekly} monthly={monthly} />
 

@@ -157,7 +157,7 @@ export default async function SettingsPage({
       <ApiKeysCard keys={apiKeys ?? []} />
 
       <section className="mt-12 max-w-2xl">
-        <FeedbackCard mode="always" context="settings" />
+        <FeedbackCard context="settings" />
       </section>
     </AppShell>
   );

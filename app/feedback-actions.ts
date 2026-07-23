@@ -1,7 +1,6 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
 
 // In-app feedback. Rows land in the `feedback` table (insert-own RLS);
 // read them in the Supabase table editor, newest first.
@@ -30,13 +29,14 @@ export async function submitFeedback(formData: FormData) {
   });
   if (error) return { error: "Couldn't save that — try again." };
 
-  // Giving feedback also retires the dashboard prompt.
+  // Giving feedback also retires the dashboard prompt. No revalidate here —
+  // the widget handles its own hide, and a refresh would unmount it before
+  // the thanks note shows.
   await supabase
     .from("profiles")
     .update({ feedback_dismissed_at: new Date().toISOString() })
     .eq("id", user.id);
 
-  revalidatePath("/dashboard");
   return { ok: true };
 }
 
@@ -52,6 +52,5 @@ export async function dismissFeedbackPrompt() {
     .update({ feedback_dismissed_at: new Date().toISOString() })
     .eq("id", user.id);
 
-  revalidatePath("/dashboard");
   return { ok: true };
 }
