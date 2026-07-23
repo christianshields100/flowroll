@@ -24,12 +24,18 @@ export default async function LogPage({
 
   // Past sessions feed the autocomplete: gym prefill, previously-used
   // submission names, and previously-logged partners.
-  const { data: pastSessions } = await supabase
-    .from("sessions")
-    .select("gym, gym_place_id, subs_hit, subs_caught_in, partners")
-    .eq("user_id", user!.id)
-    .order("trained_on", { ascending: false })
-    .limit(200);
+  const [{ data: pastSessions }, { count: sessionCount }] = await Promise.all([
+    supabase
+      .from("sessions")
+      .select("gym, gym_place_id, subs_hit, subs_caught_in, partners")
+      .eq("user_id", user!.id)
+      .order("trained_on", { ascending: false })
+      .limit(200),
+    supabase
+      .from("sessions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user!.id),
+  ]);
 
   const past = pastSessions ?? [];
 
@@ -85,17 +91,23 @@ export default async function LogPage({
     editSession = (data as SessionRow | null) ?? null;
   }
 
+  const entryNo = (sessionCount ?? 0) + 1;
+
   return (
     <AppShell profile={profile} active="log">
-      <p className="font-mono text-xs uppercase tracking-dojo text-ink-mute">
-        {editSession ? "Edit session" : "Log a session"}
-      </p>
-      <h1 className="mt-2 font-display text-4xl tracking-tightish">
-        {editSession ? "Fix the record." : "What did you roll?"}
-      </h1>
-      <div className="belt-rule mt-6 max-w-sm" />
+      <div className="max-w-[640px]">
+        <div className="border-b border-ink pb-6">
+          <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
+            {editSession
+              ? "Amendment to the record"
+              : `New entry — Nº ${entryNo}`}
+          </p>
+          <h1 className="mt-2 text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">
+            {editSession ? "Fix the record." : "For the record."}
+          </h1>
+        </div>
 
-      <div className="mt-10">
+        <div className="mt-10">
         <LogForm
           key={editSession?.id ?? "new"}
           uid={user!.id}
@@ -110,7 +122,9 @@ export default async function LogPage({
           subSuggestions={subSuggestions}
           partnerSuggestions={partnerSuggestions}
           editSession={editSession}
+          entryNo={entryNo}
         />
+        </div>
       </div>
     </AppShell>
   );

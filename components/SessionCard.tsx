@@ -1,4 +1,6 @@
-// Shared read-only session card + belt chip, used by the feed and profile pages.
+// Shared read-only session entry + belt chip, used by the feed and profile
+// pages. Quarterly treatment: entries are not cards — each opens with a 1px
+// black top rule, hairline chips, editorial labels.
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
 import { SessionMedia } from "@/components/SessionMedia";
 import { WhoopChip } from "@/components/WhoopChip";
@@ -23,11 +25,11 @@ export function BeltChip({
   stripes: number;
   size?: "sm" | "lg";
 }) {
-  const dims = size === "lg" ? "h-5 w-10" : "h-3 w-6";
+  const dims = size === "lg" ? "h-[18px] w-10" : "h-3 w-6";
   return (
     <span
       aria-hidden
-      className={`block ${dims} ${BELT_BG[belt]} rounded-[1px] relative overflow-hidden flex-shrink-0`}
+      className={`block ${dims} ${BELT_BG[belt]} relative overflow-hidden flex-shrink-0`}
     >
       {Array.from({ length: stripes }).map((_, i) => (
         <span
@@ -58,30 +60,35 @@ export function SessionCard({
     day: "numeric",
   });
   return (
-    <li className="rounded-sm bg-paper-raised border border-paper-line p-5">
+    <li className="border-t border-ink pt-4 pb-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {author && <BeltChip belt={author.belt} stripes={author.stripes} />}
           {author && (
-            <span className="font-display text-base tracking-tightish truncate">
+            <span className="text-[15px] font-semibold tracking-tightish truncate">
               {author.display_name}
             </span>
           )}
-          <span className="font-mono text-[11px] uppercase tracking-dojo text-ink-mute">
+          <span className="text-[11px] uppercase tracking-dojo text-ink-mute">
             {date}
             {session.gym ? ` · ${session.gym}` : ""}
           </span>
         </div>
-        <span className="font-mono text-[11px] num text-ink-dim whitespace-nowrap">
-          {session.duration_min}m · {session.rounds}r
+        <span className="text-[13px] num text-ink-dim whitespace-nowrap">
+          {session.duration_min} min · {session.rounds}{" "}
+          {session.rounds === 1 ? "round" : "rounds"}
         </span>
       </div>
 
       {session.drilled && (
-        <p className="mt-3 text-sm text-ink">{session.drilled}</p>
+        <p className="mt-3 text-sm text-ink leading-relaxed">
+          {session.drilled}
+        </p>
       )}
       {session.note && (
-        <p className="mt-1 text-sm text-ink-dim italic">{session.note}</p>
+        <p className="mt-1 text-sm text-ink-dim italic leading-relaxed">
+          {session.note}
+        </p>
       )}
 
       {(session.subs_hit?.length ||
@@ -91,7 +98,7 @@ export function SessionCard({
           {session.subs_hit?.map((x, i) => (
             <span
               key={`h-${i}`}
-              className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-accent/10 text-accent border border-accent/30"
+              className="text-[11px] px-2.5 py-0.5 border border-accent text-accent"
             >
               {x}
             </span>
@@ -99,7 +106,7 @@ export function SessionCard({
           {session.subs_caught_in?.map((x, i) => (
             <span
               key={`c-${i}`}
-              className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-black/10 text-belt-black border border-belt-black/30"
+              className="text-[11px] px-2.5 py-0.5 border border-ink text-ink"
             >
               ✗ {x}
             </span>
@@ -107,7 +114,7 @@ export function SessionCard({
           {session.partners?.map((x, i) => (
             <span
               key={`p-${i}`}
-              className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-blue/10 text-belt-blue border border-belt-blue/30"
+              className="text-[11px] px-2.5 py-0.5 border border-paper-input text-ink-dim"
             >
               w/ {x}
             </span>

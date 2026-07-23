@@ -1,7 +1,9 @@
 "use client";
 
-// Coach's week-so-far recap. Fetches on mount; the API serves a cached recap
-// unless new sessions landed, so this is cheap on every dashboard visit.
+// "From the coach's desk" — the footer recap strip. Fetches on mount; the
+// API serves a cached recap unless new sessions landed, so this is cheap on
+// every dashboard visit. Quarterly: 3-col strip above a black top rule.
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 type State =
@@ -36,21 +38,21 @@ export function WeeklyRecap() {
   }, []);
 
   return (
-    <div className="rounded-sm bg-paper-raised border border-paper-line p-5 border-l-2 border-l-accent">
-      <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-        Coach · this week
+    <div className="border-t border-ink pt-5 grid sm:grid-cols-[auto,1fr,auto] gap-3 sm:gap-8 items-baseline">
+      <p className="text-[11px] uppercase tracking-dojo text-ink-mute whitespace-nowrap">
+        From the coach&apos;s desk
       </p>
-      <div className="mt-2 text-sm text-ink leading-relaxed">
+      <p className="text-sm text-ink leading-relaxed">
         {state.phase === "loading" && (
-          <span className="font-mono text-xs text-ink-mute">
-            Coach is reading your week…
+          <span className="italic text-ink-mute">
+            The coach is reading your week…
           </span>
         )}
         {state.phase === "ready" && state.content}
         {state.phase === "empty" && (
           <span className="text-ink-dim">
-            Nothing logged yet this week. Step on the mat and the recap fills
-            in here.
+            Nothing logged yet this week. Step on the mat and this column
+            fills in.
           </span>
         )}
         {state.phase === "error" && (
@@ -58,7 +60,13 @@ export function WeeklyRecap() {
             Recap unavailable right now — check back later.
           </span>
         )}
-      </div>
+      </p>
+      <Link
+        href="/chat"
+        className="text-[13px] text-accent hover:text-accent-deep transition-colors whitespace-nowrap"
+      >
+        Continue reading →
+      </Link>
     </div>
   );
 }

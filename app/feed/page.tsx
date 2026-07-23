@@ -172,13 +172,14 @@ export default async function FeedPage({
 
   return (
     <AppShell profile={myProfile} active="feed">
-      <p className="font-mono text-xs uppercase tracking-dojo text-ink-mute">
-        Feed
-      </p>
-      <h1 className="mt-2 font-display text-4xl tracking-tightish">
-        Who&apos;s on the mat?
-      </h1>
-      <div className="belt-rule mt-6 max-w-sm" />
+      <div className="border-b border-ink pb-6">
+        <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
+          Dispatches from the mats
+        </p>
+        <h1 className="mt-2 text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">
+          The circle.
+        </h1>
+      </div>
 
       <div className="mt-10 grid lg:grid-cols-[1fr_2fr] gap-10">
         {/* LEFT: people */}

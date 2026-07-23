@@ -3,6 +3,7 @@ import { AppShell } from "@/components/AppShell";
 import {
   currentStreak,
   isoDate,
+  parseDateOnly,
   periodBuckets,
   sessionTotals,
   submissionStats,
@@ -192,23 +193,61 @@ export default async function DashboardPage() {
     );
   }
 
+  // Masthead copy: issue label on the left, greeting on the right.
+  const now = new Date();
+  const ws = weekStart(now);
+  const weekEnd = new Date(ws.getTime() + 6 * 86400000);
+  const weekNo = Math.ceil(
+    ((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / 86400000 +
+      1) /
+      7,
+  );
+  const fmt = (d: Date) =>
+    d.toLocaleDateString(undefined, { month: "long", day: "numeric" });
+  const daysThisWeek = new Set(
+    rows
+      .filter((s) => parseDateOnly(s.trained_on) >= ws)
+      .map((s) => s.trained_on),
+  ).size;
+  const NUM_WORDS = [
+    "Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven",
+  ];
+  const firstName =
+    profile?.first_name?.trim() || profile?.display_name || "";
+
   return (
     <AppShell profile={profile} active="dashboard">
-      <p className="font-mono text-xs uppercase tracking-dojo text-ink-mute">
-        Dashboard
-      </p>
-      <h1 className="mt-2 font-display text-4xl tracking-tightish">
-        {empty
-          ? "Step on the mat."
-          : `Welcome to the mat${
-              profile?.first_name?.trim()
-                ? `, ${profile.first_name.trim()}`
-                : profile?.display_name
-                  ? `, ${profile.display_name}`
-                  : ""
-            }.`}
-      </h1>
-      <div className="belt-rule mt-6 max-w-sm" />
+      <div className="grid sm:grid-cols-[1fr,2fr] gap-2 sm:gap-10 items-end border-b border-ink pb-6">
+        <p className="text-[11px] uppercase tracking-dojo text-ink-mute leading-relaxed">
+          Vol. 1 — Week {weekNo}
+          <br />
+          {fmt(ws)}–{fmt(weekEnd)}, {now.getFullYear()}
+        </p>
+        <h1 className="text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">
+          {empty ? (
+            <>
+              For the record{firstName ? `, ${firstName}` : ""}.
+              <br />
+              <span className="text-ink-mute">The mat is patient.</span>
+            </>
+          ) : daysThisWeek > 0 ? (
+            <>
+              Good week{firstName ? `, ${firstName}` : ""}.
+              <br />
+              <span className="text-ink-mute">
+                {NUM_WORDS[Math.min(daysThisWeek, 7)]}{" "}
+                {daysThisWeek === 1 ? "day" : "days"} on the mat.
+              </span>
+            </>
+          ) : (
+            <>
+              Quiet week{firstName ? `, ${firstName}` : ""}.
+              <br />
+              <span className="text-ink-mute">The mat is patient.</span>
+            </>
+          )}
+        </h1>
+      </div>
 
       {showFeedback && <FeedbackWidget context="dashboard-popup" />}
 
@@ -219,39 +258,37 @@ export default async function DashboardPage() {
       )}
 
       {empty ? (
-        <div className="mt-10 rounded-sm bg-paper-raised border border-paper-line p-8 max-w-xl">
-          <p className="font-display text-xl tracking-tightish">
-            No sessions yet.
+        <div className="mt-10 max-w-xl">
+          <p className="text-xl font-medium tracking-tightish">
+            Nothing on record yet.
           </p>
-          <p className="mt-2 text-ink-dim">
-            Log your first roll and your stats will start filling in here —
-            weekly mat time, submissions, streak, searchable notes.
+          <p className="mt-2 text-ink-dim leading-relaxed">
+            Log your first roll and the figures start filling in — mat time,
+            submissions, streak, a searchable archive.
           </p>
           <a
             href="/log"
-            className="mt-6 inline-block bg-accent text-paper px-5 py-2.5 rounded-sm font-medium hover:bg-accent-deep transition"
+            className="mt-6 inline-block bg-ink text-paper px-7 py-3 text-[13px] font-semibold hover:bg-belt-black transition-colors"
           >
-            Log a session →
+            File your first session →
           </a>
         </div>
       ) : (
-        <div className="mt-10 space-y-10">
+        <div className="mt-10 space-y-12">
           <StreakTile streak={streak} totals={totals} />
-
-          <WeeklyRecap />
 
           <VolumeViews daily={daily} weekly={weekly} monthly={monthly} />
 
           {hasWhoop && (
             <section>
-              <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-                WHOOP
+              <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
+                Fig. 9 — WHOOP
               </p>
-              <h2 className="mt-1 font-display text-2xl tracking-tightish">
+              <h2 className="mt-1 text-2xl font-medium tracking-tightish">
                 Strain &amp; recovery
               </h2>
-              <p className="mt-1 text-sm text-ink-mute">
-                Only you see this — it&apos;s never shared with followers.
+              <p className="mt-1 text-sm italic text-ink-mute">
+                For your eyes only — never shared with followers.
               </p>
               <div className="mt-5">
                 <WhoopInsights
@@ -266,32 +303,28 @@ export default async function DashboardPage() {
 
           <StudyShelf shelves={studyShelves} />
 
-          <section className="grid lg:grid-cols-2 gap-6">
+          <section className="grid lg:grid-cols-2 gap-10">
             <div>
-              <SectionHeading
-                tag="Ledger"
-                title="Submissions"
-                hint="Tallies across every session"
-              />
-              <div className="mt-5 rounded-sm bg-paper-raised border border-paper-line p-5">
+              <SectionHeading fig={6} title="The ledger" hint="Tallies across every session" />
+              <div className="mt-4">
                 <SubmissionLedger sessions={rows} />
               </div>
 
               {topPartners.length > 0 && (
-                <div className="mt-6">
+                <div className="mt-10">
                   <SectionHeading
-                    tag="Circle"
-                    title="Training partners"
+                    fig={7}
+                    title="The usual suspects"
                     hint="Who you've rolled with most"
                   />
-                  <ul className="mt-5 rounded-sm bg-paper-raised border border-paper-line p-5 space-y-2">
+                  <ul className="mt-4">
                     {topPartners.map((p) => (
                       <li
                         key={p.name}
-                        className="flex items-baseline justify-between gap-3"
+                        className="flex items-baseline justify-between gap-3 border-t border-paper-line py-2"
                       >
                         <span className="text-sm text-ink">{p.name}</span>
-                        <span className="font-mono text-[11px] num text-ink-dim">
+                        <span className="text-[13px] num text-ink-mute">
                           {p.count} {p.count === 1 ? "session" : "sessions"}
                         </span>
                       </li>
@@ -303,15 +336,17 @@ export default async function DashboardPage() {
 
             <div>
               <SectionHeading
-                tag="Memory"
-                title="Notes"
+                fig={8}
+                title="The archive"
                 hint="Find anything you've drilled or noted"
               />
-              <div className="mt-5">
+              <div className="mt-4">
                 <NotesSearch sessions={rows} />
               </div>
             </div>
           </section>
+
+          <WeeklyRecap />
         </div>
       )}
     </AppShell>
@@ -319,21 +354,20 @@ export default async function DashboardPage() {
 }
 
 function SectionHeading({
-  tag,
+  fig,
   title,
   hint,
 }: {
-  tag: string;
+  fig: number;
   title: string;
   hint: string;
 }) {
   return (
     <div>
-      <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-        {tag}
+      <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
+        Fig. {fig} — {title}
       </p>
-      <h2 className="mt-1 font-display text-2xl tracking-tightish">{title}</h2>
-      <p className="mt-1 text-sm text-ink-mute">{hint}</p>
+      <p className="mt-1 text-sm italic text-ink-mute">{hint}</p>
     </div>
   );
 }

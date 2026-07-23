@@ -10,7 +10,7 @@ import { useEffect, useRef, useState } from "react";
 type Suggestion = { placeId: string; name: string; address: string };
 
 const inputCls =
-  "w-full bg-paper border border-paper-line rounded-sm px-3 py-2.5 text-ink placeholder:text-ink-mute focus:outline-none focus:border-accent transition";
+  "w-full bg-transparent border-0 border-b border-ink px-0 py-2 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none focus:border-b-accent transition-colors";
 
 export function GymPicker({
   nameField = "gym",
@@ -154,7 +154,7 @@ export function GymPicker({
       />
 
       {selected ? (
-        <div className="flex items-center justify-between gap-2 w-full bg-paper border border-paper-line rounded-sm px-3 py-2.5">
+        <div className="flex items-center justify-between gap-2 w-full border-b border-ink px-0 py-2">
           <span className="flex items-center gap-2 min-w-0">
             <span className="text-ink truncate">{selected.name}</span>
             {selected.placeId && (
@@ -192,7 +192,7 @@ export function GymPicker({
             className={inputCls}
           />
           {showDropdown && (
-            <ul className="absolute z-10 mt-1 w-full bg-paper border border-paper-line rounded-sm shadow-paper max-h-60 overflow-y-auto">
+            <ul className="absolute z-10 mt-1 w-full bg-paper border border-paper-line max-h-60 overflow-y-auto">
               {loading && results.length === 0 && (
                 <li className="px-3 py-2 text-sm text-ink-mute font-mono">
                   Searching…

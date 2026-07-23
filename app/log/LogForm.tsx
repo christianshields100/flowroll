@@ -26,6 +26,7 @@ export function LogForm({
   editSession = null,
   prefillDate,
   prefillMinutes,
+  entryNo,
 }: {
   uid: string;
   defaultGym: string | null;
@@ -37,6 +38,8 @@ export function LogForm({
   // From a WHOOP "log this workout" nudge — prefill date/duration for a new entry.
   prefillDate?: string;
   prefillMinutes?: number;
+  // Ordinal of this entry in the athlete's archive (for the submit-row copy).
+  entryNo?: number;
 }) {
   const editing = editSession !== null;
   const [state, formAction] = useFormState(
@@ -57,7 +60,7 @@ export function LogForm({
   }, [state, editing]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-7 max-w-2xl">
+    <form ref={formRef} action={formAction} className="space-y-8">
       {editing && (
         <input type="hidden" name="session_id" value={editSession.id} />
       )}
@@ -159,7 +162,7 @@ export function LogForm({
         <textarea
           name="note"
           rows={3}
-          placeholder="Anything worth remembering — what worked, what didn't."
+          placeholder="Anything worth remembering — what worked, what didn't…"
           defaultValue={editSession?.note ?? ""}
           className={`${inputCls} resize-y`}
         />
@@ -173,24 +176,31 @@ export function LogForm({
         />
       </Field>
 
-      <div className="flex items-center gap-4 pt-2">
-        <SubmitButton editing={editing} />
-        {editing && (
-          <a
-            href="/dashboard"
-            className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition"
-          >
-            Cancel
-          </a>
-        )}
-        {state.status === "ok" && !editing && (
-          <span className="font-mono text-xs uppercase tracking-dojo text-accent">
-            ✓ Saved
-          </span>
-        )}
-        {state.status === "error" && (
-          <span className="text-sm text-accent">{state.message}</span>
-        )}
+      <div className="border-t border-ink pt-5 flex items-center justify-between gap-4 flex-wrap">
+        <span className="text-[13px] italic text-ink-mute">
+          {editing
+            ? "Amendments are part of the record too."
+            : entryNo
+              ? `Entry Nº ${entryNo} of a lifetime archive.`
+              : "One entry at a time."}
+        </span>
+        <span className="flex items-center gap-4">
+          {state.status === "ok" && !editing && (
+            <span className="text-[13px] text-accent">✓ Filed</span>
+          )}
+          {state.status === "error" && (
+            <span className="text-sm text-accent">{state.message}</span>
+          )}
+          {editing && (
+            <a
+              href="/dashboard"
+              className="text-[13px] text-ink-mute hover:text-ink transition-colors"
+            >
+              Cancel
+            </a>
+          )}
+          <SubmitButton editing={editing} />
+        </span>
       </div>
     </form>
   );
@@ -202,9 +212,9 @@ function SubmitButton({ editing }: { editing: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="bg-accent text-paper px-6 py-3 rounded-sm font-medium hover:bg-accent-deep transition disabled:opacity-50 disabled:cursor-not-allowed"
+      className="bg-ink text-paper px-7 py-3 text-[13px] font-semibold hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      {pending ? "Saving…" : editing ? "Save changes" : "Log session"}
+      {pending ? "Filing…" : editing ? "File the amendment →" : "File this session →"}
     </button>
   );
 }
@@ -216,9 +226,15 @@ function FeelPicker({
   value: number;
   onChange: (v: number) => void;
 }) {
-  const labels = ["Rough", "Off", "OK", "Sharp", "Locked in"];
+  const captions = [
+    "rough seas",
+    "a bit off",
+    "fair conditions",
+    "good day at the office",
+    "locked in",
+  ];
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-2.5">
       {[1, 2, 3, 4, 5].map((n) => {
         const active = value === n;
         return (
@@ -228,17 +244,17 @@ function FeelPicker({
             onClick={() => onChange(n)}
             className={
               active
-                ? "h-10 w-10 rounded-sm bg-accent text-paper font-mono text-sm"
-                : "h-10 w-10 rounded-sm bg-paper border border-paper-line text-ink-dim hover:border-accent hover:text-ink transition font-mono text-sm"
+                ? "h-[34px] w-[34px] rounded-full border-2 border-accent text-accent font-semibold text-sm"
+                : "h-[34px] w-[34px] rounded-full border border-paper-input text-ink-dim hover:border-ink hover:text-ink transition-colors text-sm"
             }
-            aria-label={`Feel ${n}: ${labels[n - 1]}`}
+            aria-label={`Feel ${n}: ${captions[n - 1]}`}
           >
             {n}
           </button>
         );
       })}
-      <span className="ml-3 font-mono text-xs text-ink-mute">
-        {labels[value - 1]}
+      <span className="ml-3 text-[13px] italic text-ink-mute">
+        {captions[value - 1]}
       </span>
     </div>
   );
@@ -261,11 +277,11 @@ function Field({
   return (
     <Tag className="block">
       <span className="flex items-baseline justify-between">
-        <span className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
+        <span className="text-[11px] uppercase tracking-dojo text-ink-mute">
           {label}
         </span>
         {hint && (
-          <span className="font-mono text-[10px] text-ink-mute lowercase">
+          <span className="text-[11px] italic text-ink-mute lowercase">
             {hint}
           </span>
         )}
@@ -276,4 +292,4 @@ function Field({
 }
 
 const inputCls =
-  "w-full bg-paper border border-paper-line rounded-sm px-3 py-2.5 text-ink placeholder:text-ink-mute focus:outline-none focus:border-accent transition";
+  "w-full bg-transparent border-0 border-b border-ink px-0 py-2 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none focus:border-b-accent transition-colors";

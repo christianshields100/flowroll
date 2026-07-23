@@ -90,14 +90,14 @@ export function ChatPanel({
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-[680px] mx-auto">
       <div
         ref={scrollRef}
-        className="rounded-sm bg-paper-raised border border-paper-line p-5 h-[28rem] overflow-y-auto space-y-4"
+        className="border-y border-paper-line py-5 h-[28rem] overflow-y-auto space-y-5"
       >
         {messages.length === 0 && (
           <div>
-            <p className="text-sm text-ink-mute font-mono">
+            <p className="text-sm italic text-ink-mute">
               Try one of these:
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -105,7 +105,7 @@ export function ChatPanel({
                 <button
                   key={q}
                   onClick={() => send(q)}
-                  className="text-left text-sm text-ink-dim border border-paper-line rounded-sm px-3 py-2 hover:border-accent hover:text-ink transition"
+                  className="text-left text-sm text-ink-dim border border-paper-line px-3 py-2 hover:border-ink hover:text-ink transition-colors"
                 >
                   {q}
                 </button>
@@ -122,16 +122,16 @@ export function ChatPanel({
             <div
               className={
                 m.role === "user"
-                  ? "max-w-[85%] rounded-sm bg-accent/10 border border-accent/30 px-3 py-2 text-sm text-ink whitespace-pre-wrap"
-                  : "max-w-[85%] rounded-sm bg-paper border border-paper-line px-3 py-2 text-sm text-ink"
+                  ? "max-w-[75%] border border-ink bg-paper px-3.5 py-2.5 text-sm text-ink whitespace-pre-wrap"
+                  : "max-w-[85%] bg-paper-sunken border-l-2 border-accent px-4 py-3 text-sm text-ink"
               }
             >
               {m.role === "assistant" ? (
                 m.content ? (
                   <Markdown content={m.content} />
                 ) : (
-                  <span className="text-ink-mute font-mono text-xs">
-                    thinking…
+                  <span className="text-ink-mute italic text-xs">
+                    the coach is thinking…
                   </span>
                 )
               ) : (
@@ -147,7 +147,7 @@ export function ChatPanel({
       )}
 
       <form
-        className="mt-4 flex gap-3"
+        className="mt-5 pt-4 border-t border-ink flex gap-3 items-end"
         onSubmit={(e) => {
           e.preventDefault();
           send(input);
@@ -157,14 +157,14 @@ export function ChatPanel({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask about your training…"
+          placeholder="Ask about your game…"
           disabled={busy}
-          className="flex-1 bg-paper border border-paper-line rounded-sm px-3 py-2.5 text-ink placeholder:text-ink-mute focus:outline-none focus:border-accent transition disabled:opacity-60"
+          className="flex-1 bg-transparent border-b border-ink px-0 py-2.5 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none focus:border-b-accent transition-colors disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="bg-accent text-paper px-5 py-2.5 rounded-sm font-medium hover:bg-accent-deep transition disabled:opacity-50"
+          className="bg-accent text-paper px-6 py-2.5 text-[13px] font-semibold hover:bg-accent-deep transition-colors disabled:opacity-50"
         >
           {busy ? "…" : "Ask"}
         </button>
@@ -197,9 +197,9 @@ export function ChatPanel({
               type="button"
               onClick={() => setConfirmingClear(true)}
               disabled={busy}
-              className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition disabled:opacity-50"
+              className="text-[11px] italic text-ink-mute hover:text-ink transition-colors disabled:opacity-50"
             >
-              Clear conversation
+              Burn the correspondence
             </button>
           )}
         </div>

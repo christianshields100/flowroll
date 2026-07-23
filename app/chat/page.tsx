@@ -31,20 +31,22 @@ export default async function ChatPage() {
 
   return (
     <AppShell profile={profile} active="chat">
-      <p className="font-mono text-xs uppercase tracking-dojo text-ink-mute">
-        Coach
-      </p>
-      <h1 className="mt-2 font-display text-4xl tracking-tightish">
-        Ask your training log.
-      </h1>
-      <p className="mt-2 text-ink-dim max-w-xl">
-        Questions about your sessions, notes, submissions — or BJJ in general.
-        Nothing else; Coach stays on the mat.
-      </p>
-      <div className="belt-rule mt-6 max-w-sm" />
+      <div className="max-w-[680px] mx-auto">
+        <div className="text-center border-b border-ink pb-6">
+          <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
+            Correspondence with
+          </p>
+          <h1 className="mt-2 text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">
+            The Coach.
+          </h1>
+          <p className="mt-2 text-sm italic text-ink-mute">
+            Reads your entire log. Politely declines everything else.
+          </p>
+        </div>
 
-      <div className="mt-8">
-        <ChatPanel initialMessages={initialMessages} />
+        <div className="mt-8">
+          <ChatPanel initialMessages={initialMessages} />
+        </div>
       </div>
     </AppShell>
   );

@@ -3,7 +3,7 @@
 import {
   Bar,
   BarChart,
-  CartesianGrid,
+  Cell,
   ComposedChart,
   Line,
   ResponsiveContainer,
@@ -13,14 +13,26 @@ import {
 } from "recharts";
 import type { PeriodBucket } from "@/lib/stats";
 
-// Two separate charts — one for mat minutes (red), one for rounds rolled (black).
+// Quarterly chart language: quiet #DEDCD5 bars with the current period in
+// red, square corners, sitting on a 1px black baseline. No gridlines, no
+// shadows — the tooltip is a hairline-bordered card.
+
+const TOOLTIP_STYLE = {
+  background: "#FDFCFA",
+  border: "1px solid #E5E3DD",
+  borderRadius: 0,
+  fontSize: 12,
+  color: "#0A0908",
+} as const;
+
+const TICK = { fontSize: 11, fill: "#8A857E" } as const;
+const BASELINE = { stroke: "#0A0908", strokeWidth: 1 } as const;
 
 export function MatTimeChart({ data }: { data: PeriodBucket[] }) {
   return (
     <ChartFrame
       data={data}
       dataKey="mat_min"
-      color="#B2342A"
       tooltipLabel="Mat time"
       tooltipUnit="min"
     />
@@ -32,7 +44,6 @@ export function RoundsChart({ data }: { data: PeriodBucket[] }) {
     <ChartFrame
       data={data}
       dataKey="rounds"
-      color="#0A0908"
       tooltipLabel="Rounds"
       tooltipUnit=""
     />
@@ -49,20 +60,19 @@ export function FeelTrendChart({ data }: { data: PeriodBucket[] }) {
           data={data}
           margin={{ top: 8, right: 0, left: -16, bottom: 0 }}
         >
-          <CartesianGrid stroke="#E5E3DD" vertical={false} />
           <XAxis
             dataKey="label"
             stroke="#8A857E"
             tickLine={false}
-            axisLine={false}
-            tick={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+            axisLine={BASELINE}
+            tick={TICK}
           />
           <YAxis
             yAxisId="volume"
             stroke="#8A857E"
             tickLine={false}
             axisLine={false}
-            tick={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+            tick={TICK}
             width={40}
             allowDecimals={false}
           />
@@ -74,19 +84,12 @@ export function FeelTrendChart({ data }: { data: PeriodBucket[] }) {
             stroke="#B2342A"
             tickLine={false}
             axisLine={false}
-            tick={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+            tick={TICK}
             width={24}
           />
           <Tooltip
             cursor={{ fill: "#F1EFEA" }}
-            contentStyle={{
-              background: "#FFFFFF",
-              border: "1px solid #E5E3DD",
-              borderRadius: 2,
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "#0A0908",
-            }}
+            contentStyle={TOOLTIP_STYLE}
             labelStyle={{ color: "#4A4642" }}
             formatter={(value, name) =>
               name === "feel_avg"
@@ -94,13 +97,7 @@ export function FeelTrendChart({ data }: { data: PeriodBucket[] }) {
                 : [`${value} min`, "Mat time"]
             }
           />
-          <Bar
-            yAxisId="volume"
-            dataKey="mat_min"
-            fill="#0A0908"
-            fillOpacity={0.15}
-            radius={[2, 2, 0, 0]}
-          />
+          <Bar yAxisId="volume" dataKey="mat_min" fill="#DEDCD5" radius={0} />
           <Line
             yAxisId="feel"
             dataKey="feel_avg"
@@ -119,13 +116,11 @@ export function FeelTrendChart({ data }: { data: PeriodBucket[] }) {
 function ChartFrame({
   data,
   dataKey,
-  color,
   tooltipLabel,
   tooltipUnit,
 }: {
   data: PeriodBucket[];
   dataKey: "mat_min" | "rounds";
-  color: string;
   tooltipLabel: string;
   tooltipUnit: string;
 }) {
@@ -136,39 +131,38 @@ function ChartFrame({
           data={data}
           margin={{ top: 8, right: 8, left: -16, bottom: 0 }}
         >
-          <CartesianGrid stroke="#E5E3DD" vertical={false} />
           <XAxis
             dataKey="label"
             stroke="#8A857E"
             tickLine={false}
-            axisLine={false}
-            tick={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+            axisLine={BASELINE}
+            tick={TICK}
           />
           <YAxis
             stroke="#8A857E"
             tickLine={false}
             axisLine={false}
-            tick={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
+            tick={TICK}
             width={40}
             allowDecimals={false}
           />
           <Tooltip
             cursor={{ fill: "#F1EFEA" }}
-            contentStyle={{
-              background: "#FFFFFF",
-              border: "1px solid #E5E3DD",
-              borderRadius: 2,
-              fontFamily: "var(--font-mono)",
-              fontSize: 12,
-              color: "#0A0908",
-            }}
+            contentStyle={TOOLTIP_STYLE}
             labelStyle={{ color: "#4A4642" }}
             formatter={(value) => [
               tooltipUnit ? `${value} ${tooltipUnit}` : `${value}`,
               tooltipLabel,
             ]}
           />
-          <Bar dataKey={dataKey} fill={color} radius={[2, 2, 0, 0]} />
+          <Bar dataKey={dataKey} radius={0}>
+            {data.map((_, i) => (
+              <Cell
+                key={i}
+                fill={i === data.length - 1 ? "#B2342A" : "#DEDCD5"}
+              />
+            ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </div>

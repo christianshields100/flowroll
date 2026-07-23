@@ -9,24 +9,29 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // Page surface — warm-toned white paper.
+        // Page surface — warm paper white ("The Quarterly").
         paper: {
-          DEFAULT: "#FFFFFF",
-          raised: "#FAFAF7", // card / panel background
+          DEFAULT: "#FDFCFA",
+          raised: "#FDFCFA", // flat: cards are hairline-bordered, not tinted
           line: "#E5E3DD",   // hairlines / dividers
-          ink: "#F1EFEA",    // sunken panel
+          input: "#D8D5CE",  // input underlines
+          sunken: "#F5F3EE", // coach bubbles, recessed panels
+          ink: "#F1EFEA",    // deeper sunken panel
         },
         // Text on paper.
         ink: {
-          DEFAULT: "#0A0908", // primary text (near-black)
+          DEFAULT: "#0A0908", // primary text + strong rules (near-black)
           dim: "#4A4642",     // secondary
           mute: "#8A857E",    // tertiary / labels
+          faint: "#A6A199",   // lightest muted / dashed borders
         },
-        // Primary UI accent — red. Used for highlights, buttons, links.
+        // Primary UI accent — red. Used sparingly: one accent per view.
         accent: {
           DEFAULT: "#B2342A", // primary red
           deep: "#7A201A",    // hover / pressed
         },
+        // Chart bars (inactive).
+        bar: "#DEDCD5",
         // IBJJF belt palette — preserved for rank chips so a blue belt
         // renders blue regardless of UI theme.
         belt: {
@@ -39,17 +44,27 @@ const config: Config = {
           stripe: "#F4F1E8",
         },
       },
+      // Single family everywhere; the three slots are kept so existing
+      // font-display / font-mono call sites don't need touching.
       fontFamily: {
-        display: ["var(--font-display)", "ui-sans-serif", "system-ui"],
-        sans: ["var(--font-body)", "ui-sans-serif", "system-ui"],
-        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
+        display: ["var(--font-quarterly)", "ui-sans-serif", "system-ui"],
+        sans: ["var(--font-quarterly)", "ui-sans-serif", "system-ui"],
+        mono: ["var(--font-quarterly)", "ui-sans-serif", "system-ui"],
       },
       letterSpacing: {
-        tightish: "-0.015em",
-        dojo: "0.08em",
+        tightish: "-0.02em",
+        dojo: "0.06em",
       },
+      // No shadows in the Quarterly — hairlines do the separating.
       boxShadow: {
-        paper: "0 1px 0 0 rgba(10,9,8,0.04), 0 1px 2px 0 rgba(10,9,8,0.04)",
+        paper: "none",
+        lg: "none",
+      },
+      // Square corners everywhere (rounded-sm is used app-wide; zeroing it
+      // squares the whole app in one move). rounded-full stays for
+      // avatars, monograms, and the feel dots.
+      borderRadius: {
+        sm: "0",
       },
     },
   },

@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  --paper: #ffffff;
-  --paper-raised: #fafaf7;
+  --paper: #fdfcfa;
+  --paper-raised: #fdfcfa;
   --paper-line: #e5e3dd;
   --ink: #0a0908;
   --ink-dim: #4a4642;
@@ -24,37 +24,18 @@ body {
   font-feature-settings: "ss01", "ss02";
 }
 
-/* Subtle weave texture on white paper — barely visible. */
+/* Legacy helper: the Quarterly is clean paper, no texture. */
 .bg-paper-weave {
   background-color: var(--paper);
-  background-image:
-    repeating-linear-gradient(
-      0deg,
-      rgba(10, 9, 8, 0.022) 0px,
-      rgba(10, 9, 8, 0.022) 1px,
-      transparent 1px,
-      transparent 6px
-    ),
-    repeating-linear-gradient(
-      90deg,
-      rgba(10, 9, 8, 0.022) 0px,
-      rgba(10, 9, 8, 0.022) 1px,
-      transparent 1px,
-      transparent 6px
-    );
 }
 
-/* Belt stripe — thin horizontal accent used as a section underline. */
+/* Section rule — the Quarterly's 1px black break. (Name kept for
+   existing call sites; max-w constraints there are overridden here so
+   rules always run full-width.) */
 .belt-rule {
-  height: 2px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--accent) 12%,
-    var(--accent) 88%,
-    transparent 100%
-  );
-  opacity: 0.9;
+  height: 1px;
+  background: var(--ink);
+  max-width: 100% !important;
 }
 
 @layer utilities {
@@ -62,7 +43,6 @@ body {
     text-wrap: balance;
   }
   .num {
-    font-family: var(--font-mono), ui-monospace, monospace;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
   }

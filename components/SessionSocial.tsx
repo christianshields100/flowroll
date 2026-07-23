@@ -79,7 +79,7 @@ export function SessionSocial({
   }
 
   return (
-    <div className="mt-4 pt-3 border-t border-paper-line">
+    <div className="mt-4 pt-3">
       {/* reaction palette + comment toggle */}
       <div className="flex items-center gap-1.5">
         {REACTIONS.map((emoji) => {
@@ -93,9 +93,9 @@ export function SessionSocial({
               disabled={pending}
               onClick={() => react(emoji)}
               aria-pressed={mine}
-              className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-sm transition disabled:opacity-50 ${
+              className={`flex items-center gap-1 border px-2 py-0.5 text-sm transition-colors disabled:opacity-50 ${
                 mine
-                  ? "border-accent bg-accent/10"
+                  ? "border-accent"
                   : "border-paper-line hover:border-ink-mute"
               }`}
             >
@@ -116,7 +116,7 @@ export function SessionSocial({
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="ml-auto font-mono text-[11px] uppercase tracking-dojo text-ink-mute hover:text-accent transition"
+          className="ml-auto text-[13px] underline underline-offset-2 text-ink-dim hover:text-ink transition-colors"
         >
           {comments.length > 0
             ? `${comments.length} comment${comments.length > 1 ? "s" : ""}`
@@ -125,7 +125,7 @@ export function SessionSocial({
       </div>
 
       {reactionTotal === 0 && comments.length === 0 && !open && (
-        <p className="mt-2 font-mono text-[10px] text-ink-mute">
+        <p className="mt-2 text-[11px] italic text-ink-mute">
           Be the first to react.
         </p>
       )}
@@ -177,13 +177,13 @@ export function SessionSocial({
               rows={1}
               maxLength={2000}
               placeholder="Add a comment…"
-              className="flex-1 resize-y bg-paper border border-paper-line rounded-sm px-3 py-2 text-sm text-ink placeholder:text-ink-mute focus:outline-none focus:border-accent transition"
+              className="flex-1 resize-y bg-transparent border-b border-ink px-0 py-2 text-sm text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none focus:border-b-accent transition-colors"
             />
             <button
               type="button"
               disabled={pending || !draft.trim()}
               onClick={submitComment}
-              className="bg-accent text-paper px-3 py-2 rounded-sm font-mono text-[10px] uppercase tracking-dojo hover:bg-accent-deep transition disabled:opacity-40"
+              className="bg-accent text-paper px-4 py-2 text-[13px] font-semibold hover:bg-accent-deep transition-colors disabled:opacity-40"
             >
               Post
             </button>

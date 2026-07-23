@@ -51,20 +51,20 @@ export function NotesSearch({ sessions }: { sessions: SessionRow[] }) {
         type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search notes, drilled, subs, partners…"
-        className="w-full bg-paper border border-paper-line rounded-sm px-3 py-2.5 text-ink placeholder:text-ink-mute focus:outline-none focus:border-accent transition"
+        placeholder="Search the archive — notes, drilled, subs, partners…"
+        className="w-full bg-transparent border-b border-ink px-0 py-2 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none focus:border-accent transition-colors"
       />
 
       <ul className="mt-5 space-y-4">
         {results.length === 0 && (
-          <li className="text-sm text-ink-mute font-mono">
-            {q ? "Nothing matches." : "No sessions yet — log one to start."}
+          <li className="text-sm italic text-ink-mute">
+            {q ? "Nothing in the archive matches." : "No sessions yet — log one to start."}
           </li>
         )}
         {results.map((s) => (
           <li
             key={s.id}
-            className={`rounded-sm bg-paper-raised border border-paper-line p-4 ${
+            className={`border-t border-paper-line pt-4 ${
               pendingDelete && deletingId === s.id ? "opacity-40" : ""
             }`}
           >
@@ -128,7 +128,7 @@ export function NotesSearch({ sessions }: { sessions: SessionRow[] }) {
                 {s.subs_hit?.map((x, i) => (
                   <span
                     key={`h-${i}`}
-                    className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-accent/10 text-accent border border-accent/30"
+                    className="text-[11px] px-2.5 py-0.5 border border-accent text-accent"
                   >
                     {x}
                   </span>
@@ -136,7 +136,7 @@ export function NotesSearch({ sessions }: { sessions: SessionRow[] }) {
                 {s.subs_caught_in?.map((x, i) => (
                   <span
                     key={`c-${i}`}
-                    className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-black/10 text-belt-black border border-belt-black/30"
+                    className="text-[11px] px-2.5 py-0.5 border border-ink text-ink"
                   >
                     ✗ {x}
                   </span>
@@ -144,7 +144,7 @@ export function NotesSearch({ sessions }: { sessions: SessionRow[] }) {
                 {s.partners?.map((x, i) => (
                   <span
                     key={`p-${i}`}
-                    className="font-mono text-[10px] uppercase tracking-dojo px-2 py-0.5 rounded-sm bg-belt-blue/10 text-belt-blue border border-belt-blue/30"
+                    className="text-[11px] px-2.5 py-0.5 border border-paper-input text-ink-dim"
                   >
                     w/ {x}
                   </span>

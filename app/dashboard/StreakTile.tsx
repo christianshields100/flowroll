@@ -1,6 +1,8 @@
 import { formatHours, type SessionTotals } from "@/lib/stats";
 
-// Top-line stats — streak + lifetime totals. Server-renderable.
+// Fig. 1–4 stat row. Each stat sits under a top rule — the featured one
+// (streak) gets the 2px red rule, siblings 1px black. Fig numbers are part
+// of the Quarterly's editorial register.
 export function StreakTile({
   streak,
   totals,
@@ -9,59 +11,60 @@ export function StreakTile({
   totals: SessionTotals;
 }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 sm:gap-10">
       <Stat
+        fig={1}
         label="Streak"
         value={`${streak}`}
         unit={streak === 1 ? "day" : "days"}
         accent
       />
       <Stat
+        fig={2}
         label="Mat time"
         value={formatHours(totals.total_min)}
         unit="total"
       />
       <Stat
+        fig={3}
         label="Sessions"
         value={`${totals.total_sessions}`}
-        unit={totals.total_sessions === 1 ? "logged" : "logged"}
+        unit="logged"
       />
-      <Stat
-        label="Rounds"
-        value={`${totals.total_rounds}`}
-        unit="rolled"
-      />
+      <Stat fig={4} label="Rounds" value={`${totals.total_rounds}`} unit="rolled" />
     </div>
   );
 }
 
 function Stat({
+  fig,
   label,
   value,
   unit,
   accent,
 }: {
+  fig: number;
   label: string;
   value: string;
   unit: string;
   accent?: boolean;
 }) {
   return (
-    <div className="rounded-sm bg-paper-raised border border-paper-line p-4">
-      <p className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
-        {label}
+    <div
+      className={
+        accent
+          ? "border-t-2 border-accent pt-3"
+          : "border-t border-ink pt-[13px]"
+      }
+    >
+      <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
+        Fig. {fig} — {label}
       </p>
-      <p
-        className={
-          accent
-            ? "mt-2 font-mono text-3xl num text-accent"
-            : "mt-2 font-mono text-3xl num text-ink"
-        }
-      >
-        {value}
-      </p>
-      <p className="mt-1 font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
-        {unit}
+      <p className="mt-2 text-[32px] leading-none font-medium tracking-tightish num text-ink">
+        {value}{" "}
+        <span className="text-[13px] font-normal tracking-normal text-ink-mute">
+          {unit}
+        </span>
       </p>
     </div>
   );

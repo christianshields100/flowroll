@@ -113,7 +113,7 @@ export default async function ProfilePage({
             size="lg"
           />
           <div>
-            <h1 className="font-display text-3xl tracking-tightish">
+            <h1 className="text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">
               {displayName(target)}
             </h1>
             {hasFullName(target) && (
@@ -207,10 +207,10 @@ export default async function ProfilePage({
         </div>
       </div>
 
-      <div className="belt-rule mt-6 max-w-sm" />
+      <div className="belt-rule mt-8" />
 
       {canView && totals && (
-        <div className="mt-8 grid grid-cols-3 gap-4 max-w-md">
+        <div className="mt-8 grid grid-cols-3 gap-6 sm:gap-10 max-w-xl">
           <Stat label="Sessions" value={`${totals.total_sessions}`} />
           <Stat label="Mat time" value={formatHours(totals.total_min)} />
           <Stat label="Rounds" value={`${totals.total_rounds}`} />
@@ -219,8 +219,8 @@ export default async function ProfilePage({
 
       <div className="mt-8">
         {!canView ? (
-          <div className="rounded-sm bg-paper-raised border border-paper-line p-8 max-w-xl text-center">
-            <p className="font-display text-xl tracking-tightish">
+          <div className="border-t border-ink pt-6 max-w-xl text-center mx-auto">
+            <p className="text-xl font-medium tracking-tightish">
               This account is private
             </p>
             <p className="mt-2 text-ink-dim">
@@ -231,8 +231,8 @@ export default async function ProfilePage({
           </div>
         ) : (
           <>
-            <p className="font-mono text-[10px] uppercase tracking-dojo text-accent">
-              Recent sessions
+            <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
+              Recent entries
             </p>
             {rows.length === 0 ? (
               <div className="mt-4 rounded-sm bg-paper-raised border border-paper-line p-6">
@@ -269,16 +269,18 @@ export default async function ProfilePage({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-sm bg-paper-raised border border-paper-line p-4">
-      <p className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute">
+    <div className="border-t border-ink pt-3">
+      <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
         {label}
       </p>
-      <p className="mt-2 font-mono text-2xl num text-ink">{value}</p>
+      <p className="mt-2 text-[30px] leading-none font-medium tracking-tightish num text-ink">
+        {value}
+      </p>
     </div>
   );
 }
 
 const btnPrimary =
-  "font-mono text-[10px] uppercase tracking-dojo px-3 py-1.5 rounded-sm bg-accent text-paper hover:bg-accent-deep transition";
+  "text-[13px] font-semibold px-5 py-2 bg-ink text-paper hover:opacity-80 transition-opacity";
 const btnGhost =
-  "font-mono text-[10px] uppercase tracking-dojo px-3 py-1.5 rounded-sm border border-paper-line text-ink-dim hover:border-accent hover:text-accent transition";
+  "text-[13px] px-5 py-2 border border-paper-input text-ink-dim hover:border-ink hover:text-ink transition-colors";

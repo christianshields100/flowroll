@@ -88,17 +88,17 @@ export function TagInput({
   }
 
   const chipCls = accent
-    ? "bg-accent/10 text-accent border border-accent/30"
-    : "bg-belt-black/10 text-belt-black border border-belt-black/30";
+    ? "border border-accent text-accent"
+    : "border border-ink text-ink";
 
   return (
     <div ref={rootRef} className="relative">
       <input type="hidden" name={name} value={tags.join(", ")} />
-      <div className="w-full bg-paper border border-paper-line rounded-sm px-2 py-1.5 flex flex-wrap items-center gap-1.5 focus-within:border-accent transition">
+      <div className="w-full border-b border-ink px-0 py-1.5 flex flex-wrap items-center gap-1.5 focus-within:border-b-accent transition-colors">
         {tags.map((tag, i) => (
           <span
             key={`${tag}-${i}`}
-            className={`font-mono text-[10px] uppercase tracking-dojo pl-2 pr-1 py-0.5 rounded-sm inline-flex items-center gap-1 ${chipCls}`}
+            className={`text-[12px] pl-2.5 pr-1 py-0.5 inline-flex items-center gap-1 ${chipCls}`}
           >
             {tag}
             <button
@@ -125,12 +125,12 @@ export function TagInput({
           }}
           onKeyDown={onKeyDown}
           placeholder={tags.length === 0 ? placeholder : ""}
-          className="flex-1 min-w-[8rem] bg-transparent px-1 py-1 text-ink placeholder:text-ink-mute focus:outline-none"
+          className="flex-1 min-w-[8rem] bg-transparent px-0 py-1 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none"
         />
       </div>
 
       {open && matches.length > 0 && (
-        <ul className="absolute z-10 mt-1 w-full bg-paper border border-paper-line rounded-sm shadow-paper max-h-48 overflow-y-auto">
+        <ul className="absolute z-10 mt-1 w-full bg-paper border border-paper-line max-h-48 overflow-y-auto">
           {matches.map((m, i) => (
             <li key={m}>
               <button
