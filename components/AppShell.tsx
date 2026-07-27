@@ -43,7 +43,7 @@ export function AppShell({
             href="/dashboard"
             className="text-[15px] font-semibold tracking-tightish"
           >
-            flowroll<span className="text-accent">.</span>
+            flowroll<span className="logo-dot text-accent">.</span>
           </Link>
 
           <nav className="flex items-center gap-4 sm:gap-6 text-[13px]">
@@ -119,10 +119,11 @@ function NavLink({
   return (
     <Link
       href={href}
+      data-active={active}
       className={
         active
-          ? "text-ink font-semibold"
-          : "text-ink-mute hover:text-ink transition-colors"
+          ? "link-grow text-ink font-semibold"
+          : "link-grow text-ink-mute hover:text-ink transition-colors"
       }
     >
       {children}

@@ -47,3 +47,98 @@ body {
     letter-spacing: -0.01em;
   }
 }
+
+/* ============================================================
+   The Quarterly, alive — motion toolkit.
+   Print-calm but breathing: content rises in, numbers tick up,
+   skeletons shimmer. Everything gated on prefers-reduced-motion.
+   ============================================================ */
+
+@media (prefers-reduced-motion: no-preference) {
+  .rise {
+    opacity: 0;
+    transform: translateY(10px);
+    animation: q-rise 0.55s cubic-bezier(0.2, 0.65, 0.25, 1) forwards;
+  }
+  .rise-1 { animation-delay: 0.06s; }
+  .rise-2 { animation-delay: 0.12s; }
+  .rise-3 { animation-delay: 0.18s; }
+  .rise-4 { animation-delay: 0.24s; }
+  .rise-5 { animation-delay: 0.3s; }
+  .rise-6 { animation-delay: 0.36s; }
+
+  /* The wordmark's red period breathes once on header hover. */
+  .logo-dot { display: inline-block; transition: transform 0.2s ease; }
+  a:hover > .logo-dot { animation: q-pop 0.35s ease; }
+}
+
+@keyframes q-rise {
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes q-pop {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.5); }
+  100% { transform: scale(1); }
+}
+
+/* Skeletons — shimmering hairline blocks in the paper palette. */
+.skel {
+  background: linear-gradient(90deg, #f1efea 25%, #e7e4dd 42%, #f1efea 60%);
+  background-size: 300% 100%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .skel { animation: q-shimmer 1.5s ease-in-out infinite; }
+}
+@keyframes q-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+/* Coach typing indicator — three quiet dots. */
+.dots span {
+  display: inline-block;
+  width: 4px;
+  height: 4px;
+  border-radius: 9999px;
+  background: #8a857e;
+  margin-right: 3px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .dots span { animation: q-dot 1.2s infinite ease-in-out; }
+  .dots span:nth-child(2) { animation-delay: 0.15s; }
+  .dots span:nth-child(3) { animation-delay: 0.3s; }
+}
+@keyframes q-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-3px); opacity: 1; }
+}
+
+/* Animated underline for nav + text links: grows from the left. */
+.link-grow {
+  position: relative;
+}
+.link-grow::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -3px;
+  height: 2px;
+  width: 100%;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
+}
+.link-grow:hover::after,
+.link-grow[data-active="true"]::after {
+  transform: scaleX(1);
+}
+
+/* Tactile press for buttons. */
+.pressable {
+  transition: transform 0.08s ease, opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+.pressable:active {
+  transform: translateY(1px);
+}

@@ -96,7 +96,7 @@ export default async function LogPage({
   return (
     <AppShell profile={profile} active="log">
       <div className="max-w-[640px]">
-        <div className="border-b border-ink pb-6">
+        <div className="rise border-b border-ink pb-6">
           <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
             {editSession
               ? "Amendment to the record"

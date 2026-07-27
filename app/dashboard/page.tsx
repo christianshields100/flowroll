@@ -217,7 +217,7 @@ export default async function DashboardPage() {
 
   return (
     <AppShell profile={profile} active="dashboard">
-      <div className="grid sm:grid-cols-[1fr,2fr] gap-2 sm:gap-10 items-end border-b border-ink pb-6">
+      <div className="rise grid sm:grid-cols-[1fr,2fr] gap-2 sm:gap-10 items-end border-b border-ink pb-6">
         <p className="text-[11px] uppercase tracking-dojo text-ink-mute leading-relaxed">
           Vol. 1 — Week {weekNo}
           <br />
@@ -275,9 +275,13 @@ export default async function DashboardPage() {
         </div>
       ) : (
         <div className="mt-10 space-y-12">
-          <StreakTile streak={streak} totals={totals} />
+          <div className="rise rise-1">
+            <StreakTile streak={streak} totals={totals} />
+          </div>
 
-          <VolumeViews daily={daily} weekly={weekly} monthly={monthly} />
+          <div className="rise rise-2">
+            <VolumeViews daily={daily} weekly={weekly} monthly={monthly} />
+          </div>
 
           {hasWhoop && (
             <section>
@@ -303,7 +307,7 @@ export default async function DashboardPage() {
 
           <StudyShelf shelves={studyShelves} />
 
-          <section className="grid lg:grid-cols-2 gap-10">
+          <section className="rise rise-3 grid lg:grid-cols-2 gap-10">
             <div>
               <SectionHeading fig={6} title="The ledger" hint="Tallies across every session" />
               <div className="mt-4">
@@ -346,7 +350,9 @@ export default async function DashboardPage() {
             </div>
           </section>
 
-          <WeeklyRecap />
+          <div className="rise rise-4">
+            <WeeklyRecap />
+          </div>
         </div>
       )}
     </AppShell>

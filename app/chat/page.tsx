@@ -32,7 +32,7 @@ export default async function ChatPage() {
   return (
     <AppShell profile={profile} active="chat">
       <div className="max-w-[680px] mx-auto">
-        <div className="text-center border-b border-ink pb-6">
+        <div className="rise text-center border-b border-ink pb-6">
           <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
             Correspondence with
           </p>
@@ -44,7 +44,7 @@ export default async function ChatPage() {
           </p>
         </div>
 
-        <div className="mt-8">
+        <div className="rise rise-2 mt-8">
           <ChatPanel initialMessages={initialMessages} />
         </div>
       </div>

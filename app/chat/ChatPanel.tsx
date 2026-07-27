@@ -130,8 +130,8 @@ export function ChatPanel({
                 m.content ? (
                   <Markdown content={m.content} />
                 ) : (
-                  <span className="text-ink-mute italic text-xs">
-                    the coach is thinking…
+                  <span className="dots inline-flex items-center pt-1" aria-label="The coach is thinking">
+                    <span /><span /><span />
                   </span>
                 )
               ) : (
@@ -164,7 +164,7 @@ export function ChatPanel({
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="bg-accent text-paper px-6 py-2.5 text-[13px] font-semibold hover:bg-accent-deep transition-colors disabled:opacity-50"
+          className="pressable bg-accent text-paper px-6 py-2.5 text-[13px] font-semibold hover:bg-accent-deep disabled:opacity-50"
         >
           {busy ? "…" : "Ask"}
         </button>

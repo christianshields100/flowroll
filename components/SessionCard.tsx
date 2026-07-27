@@ -60,7 +60,7 @@ export function SessionCard({
     day: "numeric",
   });
   return (
-    <li className="border-t border-ink pt-4 pb-2">
+    <li className="border-t border-ink pt-4 pb-2 px-2 -mx-2 transition-colors hover:bg-paper-sunken/50">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {author && <BeltChip belt={author.belt} stripes={author.stripes} />}

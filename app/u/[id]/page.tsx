@@ -2,10 +2,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
+import { CountUp } from "@/components/CountUp";
 import { Avatar } from "@/components/Avatar";
 import { BeltChip, SessionCard, type Belt } from "@/components/SessionCard";
 import { SessionSocial } from "@/components/SessionSocial";
-import { formatHours, sessionTotals, type SessionRow } from "@/lib/stats";
+import { sessionTotals, type SessionRow } from "@/lib/stats";
 import { fetchSessionSocial } from "@/lib/social";
 import { maybeSyncWhoop, whoopBySession, type WhoopWorkout } from "@/lib/whoop";
 import { follow, unfollow } from "@/app/feed/actions";
@@ -104,7 +105,7 @@ export default async function ProfilePage({
       </Link>
 
       {/* Header */}
-      <div className="mt-4 flex items-start justify-between gap-4 flex-wrap">
+      <div className="rise mt-4 flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-5">
           <Avatar
             url={target.avatar_url}
@@ -210,14 +211,14 @@ export default async function ProfilePage({
       <div className="belt-rule mt-8" />
 
       {canView && totals && (
-        <div className="mt-8 grid grid-cols-3 gap-6 sm:gap-10 max-w-xl">
-          <Stat label="Sessions" value={`${totals.total_sessions}`} />
-          <Stat label="Mat time" value={formatHours(totals.total_min)} />
-          <Stat label="Rounds" value={`${totals.total_rounds}`} />
+        <div className="rise rise-1 mt-8 grid grid-cols-3 gap-6 sm:gap-10 max-w-xl">
+          <Stat label="Sessions" value={totals.total_sessions} />
+          <Stat label="Mat time" value={totals.total_min} format="hours" />
+          <Stat label="Rounds" value={totals.total_rounds} />
         </div>
       )}
 
-      <div className="mt-8">
+      <div className="rise rise-2 mt-8">
         {!canView ? (
           <div className="border-t border-ink pt-6 max-w-xl text-center mx-auto">
             <p className="text-xl font-medium tracking-tightish">
@@ -267,14 +268,22 @@ export default async function ProfilePage({
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  format,
+}: {
+  label: string;
+  value: number;
+  format?: "plain" | "hours";
+}) {
   return (
     <div className="border-t border-ink pt-3">
       <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
         {label}
       </p>
       <p className="mt-2 text-[30px] leading-none font-medium tracking-tightish num text-ink">
-        {value}
+        <CountUp value={value} format={format} />
       </p>
     </div>
   );

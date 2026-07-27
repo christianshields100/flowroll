@@ -172,7 +172,7 @@ export default async function FeedPage({
 
   return (
     <AppShell profile={myProfile} active="feed">
-      <div className="border-b border-ink pb-6">
+      <div className="rise border-b border-ink pb-6">
         <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
           Dispatches from the mats
         </p>
@@ -181,7 +181,7 @@ export default async function FeedPage({
         </h1>
       </div>
 
-      <div className="mt-10 grid lg:grid-cols-[1fr_2fr] gap-10">
+      <div className="rise rise-2 mt-10 grid lg:grid-cols-[1fr_2fr] gap-10">
         {/* LEFT: people */}
         <section className="space-y-8">
           <PrivacyCard isPrivate={myProfile?.is_private ?? false} />
@@ -514,7 +514,7 @@ function SessionCard({
     day: "numeric",
   });
   return (
-    <li className="border-t border-ink pt-4 pb-2">
+    <li className="border-t border-ink pt-4 pb-2 px-2 -mx-2 transition-colors hover:bg-paper-sunken/50">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           {author ? (

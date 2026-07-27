@@ -212,7 +212,7 @@ function SubmitButton({ editing }: { editing: boolean }) {
     <button
       type="submit"
       disabled={pending}
-      className="bg-ink text-paper px-7 py-3 text-[13px] font-semibold hover:opacity-80 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+      className="pressable bg-ink text-paper px-7 py-3 text-[13px] font-semibold hover:opacity-80 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {pending ? "Filing…" : editing ? "File the amendment →" : "File this session →"}
     </button>
@@ -244,8 +244,8 @@ function FeelPicker({
             onClick={() => onChange(n)}
             className={
               active
-                ? "h-[34px] w-[34px] rounded-full border-2 border-accent text-accent font-semibold text-sm"
-                : "h-[34px] w-[34px] rounded-full border border-paper-input text-ink-dim hover:border-ink hover:text-ink transition-colors text-sm"
+                ? "pressable h-[34px] w-[34px] rounded-full border-2 border-accent text-accent font-semibold text-sm scale-110"
+                : "pressable h-[34px] w-[34px] rounded-full border border-paper-input text-ink-dim hover:border-ink hover:text-ink text-sm"
             }
             aria-label={`Feel ${n}: ${captions[n - 1]}`}
           >
