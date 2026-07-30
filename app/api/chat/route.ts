@@ -20,7 +20,9 @@ import {
 // The Anthropic SDK needs the Node runtime (not Edge).
 export const runtime = "nodejs";
 
-const MODEL = "claude-opus-4-8";
+// Haiku 4.5: ~95% cheaper than Opus with full tool-use support. Needs the
+// basic web_search variant (the 20260209 one is Opus/Sonnet-4.6+ only).
+const MODEL = "claude-haiku-4-5";
 
 // Cap the conversation we replay to the model. The training log itself is
 // re-sent every turn, so old chat turns are the only unbounded input.
@@ -201,7 +203,7 @@ export async function POST(request: Request) {
             max_tokens: 8192,
             thinking: { type: "adaptive" },
             tools: [
-              { type: "web_search_20260209", name: "web_search", max_uses: 5 },
+              { type: "web_search_20250305", name: "web_search", max_uses: 5 },
               ...COACH_TOOL_DEFINITIONS,
             ],
             system: [

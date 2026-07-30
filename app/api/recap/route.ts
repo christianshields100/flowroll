@@ -12,7 +12,7 @@ import {
 
 export const runtime = "nodejs";
 
-const MODEL = "claude-opus-4-8";
+const MODEL = "claude-haiku-4-5";
 
 function formatSession(s: SessionRow): string {
   const parts = [
