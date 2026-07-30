@@ -201,7 +201,7 @@ export async function POST(request: Request) {
           const stream = anthropic.messages.stream({
             model: MODEL,
             max_tokens: 8192,
-            thinking: { type: "adaptive" },
+            // No thinking config: Haiku 4.5 doesn't support adaptive thinking.
             tools: [
               { type: "web_search_20250305", name: "web_search", max_uses: 5 },
               ...COACH_TOOL_DEFINITIONS,
