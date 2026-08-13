@@ -22,15 +22,6 @@ import { SubmissionLedger } from "./SubmissionLedger";
 import { StreakTile } from "./StreakTile";
 import { NotesSearch } from "./NotesSearch";
 import { WeeklyRecap } from "./WeeklyRecap";
-import { WhoopInsights } from "./WhoopInsights";
-import { WhoopNudges } from "./WhoopNudges";
-import {
-  maybeSyncWhoop,
-  whoopConnected,
-  whoopDays,
-  whoopUnloggedWorkouts,
-  type WhoopNudge,
-} from "@/lib/whoop";
 
 export default async function DashboardPage() {
   const supabase = createClient();
@@ -90,75 +81,6 @@ export default async function DashboardPage() {
   const topPartners = Array.from(partnerCounts.values())
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
-
-  // --- WHOOP insights (owner-only, private view) ---
-  const hasWhoop = await whoopConnected(supabase, user!.id);
-  let whoopNudges: WhoopNudge[] = [];
-  const feelRecovery: { recovery: number; feel: number }[] = [];
-  let strainVolume: { label: string; matMin: number; strain: number | null }[] =
-    [];
-  let avgFeelHighRecovery: number | null = null;
-  let avgFeelLowRecovery: number | null = null;
-  if (hasWhoop) {
-    await maybeSyncWhoop(user!.id);
-    whoopNudges = await whoopUnloggedWorkouts(supabase, user!.id);
-    const days = await whoopDays(supabase, user!.id);
-    const recByDay = new Map(
-      days
-        .filter((d) => d.recovery_score != null)
-        .map((d) => [d.day, d.recovery_score as number]),
-    );
-    const strainByDay = new Map(
-      days
-        .filter((d) => d.day_strain != null)
-        .map((d) => [d.day, d.day_strain as number]),
-    );
-
-    // Feel vs. recovery: one point per session that has a recovery score.
-    const hi: number[] = [];
-    const lo: number[] = [];
-    for (const s of rows) {
-      const rec = recByDay.get(s.trained_on);
-      if (rec == null) continue;
-      feelRecovery.push({ recovery: Math.round(rec), feel: s.feel });
-      if (rec >= 70) hi.push(s.feel);
-      if (rec < 50) lo.push(s.feel);
-    }
-    const avg = (a: number[]) =>
-      a.length ? a.reduce((n, x) => n + x, 0) / a.length : null;
-    avgFeelHighRecovery = avg(hi);
-    avgFeelLowRecovery = avg(lo);
-
-    // Strain vs. mat time, last 8 weeks. Mat minutes summed per week; strain
-    // averaged over that week's days that have a strain value.
-    const weeks: { key: string; label: string }[] = [];
-    const now = new Date();
-    for (let i = 7; i >= 0; i--) {
-      const ws = weekStart(new Date(now.getTime() - i * 7 * 86400000));
-      weeks.push({
-        key: isoDate(ws),
-        label: ws.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-      });
-    }
-    strainVolume = weeks.map(({ key, label }) => {
-      const wsDate = new Date(key + "T00:00:00");
-      const weekEnd = new Date(wsDate.getTime() + 7 * 86400000);
-      let matMin = 0;
-      for (const s of rows) {
-        const d = new Date(s.trained_on + "T00:00:00");
-        if (d >= wsDate && d < weekEnd) matMin += s.duration_min;
-      }
-      const strains: number[] = [];
-      strainByDay.forEach((st, day) => {
-        const d = new Date(day + "T00:00:00");
-        if (d >= wsDate && d < weekEnd) strains.push(st);
-      });
-      const strain = strains.length
-        ? Math.round((strains.reduce((n, x) => n + x, 0) / strains.length) * 10) / 10
-        : null;
-      return { label, matMin, strain };
-    });
-  }
 
   // --- Study shelves (YouTube; ships dark until YOUTUBE_API_KEY is set) ---
   let studyShelves: { tag: string; title: string; videos: StudyVideo[] }[] =
@@ -251,12 +173,6 @@ export default async function DashboardPage() {
 
       {showFeedback && <FeedbackWidget context="dashboard-popup" />}
 
-      {whoopNudges.length > 0 && (
-        <div className="mt-6">
-          <WhoopNudges nudges={whoopNudges} />
-        </div>
-      )}
-
       {empty ? (
         <div className="mt-10 max-w-xl">
           <p className="text-xl font-medium tracking-tightish">
@@ -283,27 +199,6 @@ export default async function DashboardPage() {
             <VolumeViews daily={daily} weekly={weekly} monthly={monthly} />
           </div>
 
-          {hasWhoop && (
-            <section>
-              <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
-                Fig. 9 — WHOOP
-              </p>
-              <h2 className="mt-1 text-2xl font-medium tracking-tightish">
-                Strain &amp; recovery
-              </h2>
-              <p className="mt-1 text-sm italic text-ink-mute">
-                For your eyes only — never shared with followers.
-              </p>
-              <div className="mt-5">
-                <WhoopInsights
-                  feelRecovery={feelRecovery}
-                  strainVolume={strainVolume}
-                  avgFeelHighRecovery={avgFeelHighRecovery}
-                  avgFeelLowRecovery={avgFeelLowRecovery}
-                />
-              </div>
-            </section>
-          )}
 
           <StudyShelf shelves={studyShelves} />
 

@@ -26,6 +26,12 @@ type Initial = {
 
 const STEPS = ["You", "Belt", "Gym", "Photo"];
 
+const dobMax = (() => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 13);
+  return d.toISOString().slice(0, 10);
+})();
+
 export function OnboardingWizard({
   uid,
   username,
@@ -97,6 +103,7 @@ export function OnboardingWizard({
           </span>
           <input
             type="date"
+            max={dobMax}
             name="dob"
             defaultValue={initial.dob}
             className={`${inputCls} mt-2`}

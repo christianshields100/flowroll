@@ -121,6 +121,19 @@ export default function DevelopersPage() {
 }`}</Code>
           </Section>
 
+          <Section title="Terms">
+            <p>
+              API use is governed by the{" "}
+              <Link href="/terms" className="text-accent hover:underline">
+                Terms of Service
+              </Link>
+              : keys are personal and access only your own data — keep them
+              secret, respect the rate limit, don&apos;t use the API to
+              circumvent app privacy rules, and don&apos;t resell access.
+              Abused keys get revoked.
+            </p>
+          </Section>
+
           <Section title="Errors">
             <p>
               JSON with an <Mono>error</Mono> field. <Mono>401</Mono> missing

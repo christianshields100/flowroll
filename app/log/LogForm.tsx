@@ -35,7 +35,7 @@ export function LogForm({
   partnerSuggestions: string[];
   // When set, the form edits this session instead of creating a new one.
   editSession?: SessionRow | null;
-  // From a WHOOP "log this workout" nudge — prefill date/duration for a new entry.
+  // Optional prefill for date/duration (e.g. from a deep link).
   prefillDate?: string;
   prefillMinutes?: number;
   // Ordinal of this entry in the athlete's archive (for the submit-row copy).

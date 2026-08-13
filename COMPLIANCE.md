@@ -97,3 +97,29 @@ hardcoded demo stats card was already removed in July 2026.
 npm test                              # unit tests incl. crisis classifier
 node scripts/check-bucket-access.mjs  # bucket must reject unauthenticated reads
 ```
+
+---
+
+## Addendum — 2026-08-13 (second pass)
+
+- **WHOOP integration removed entirely** (code, routes, UI, Coach tool,
+  and all stored health data — v13 drops the whoop_* tables). This
+  eliminates consumer-health-data law exposure (e.g. WA My Health My Data).
+  Privacy policy scrubbed accordingly.
+- **Terms of Service** at `/terms` ([app/terms/page.tsx](app/terms/page.tsx)): eligibility 13+,
+  content license + uploader responsibility (rights to uploads, consent of
+  people in photos, no pirated instructionals), acceptable use, **AI +
+  assumption-of-risk clause for BJJ training**, API terms, termination,
+  as-is disclaimer, liability cap, NY governing law. Linked from every
+  footer and an "agree by continuing" line on the login page.
+- **Age gate**: 13+ enforced server-side wherever DoB is saved
+  (onboarding + settings; under-13 dates are rejected) and client-side via
+  the date picker's max attribute.
+- **Report mechanism**: `reports` table (v13, insert-own RLS) + a Report
+  link with inline reason on every feed/profile session entry
+  ([components/ReportButton.tsx](components/ReportButton.tsx)). Review via the Supabase table editor.
+- **API terms** section added to `/developers`.
+
+Still on the owner's plate (non-code): DMCA agent registration
+(copyright.gov, ~$6), USPTO trademark search for "FlowRoll", lawyer review
+of /terms and /privacy, an accessibility pass.

@@ -1018,3 +1018,36 @@ update public.sessions
      from unnest(media_urls) u
    )
  where media_urls <> '{}';
+
+-- ============================================================
+-- v13: WHOOP removal + content reports
+-- ============================================================
+
+-- The WHOOP integration is retired: drop its tables (and all stored health
+-- data) and the webhook RPC.
+drop function if exists public.whoop_mark_needs_sync(bigint);
+drop table if exists public.whoop_workouts;
+drop table if exists public.whoop_cycles;
+drop table if exists public.whoop_connections;
+
+-- User reports of content (sessions, comments, profiles). Insert-own via
+-- RLS; reviewed by the operator directly in the table editor.
+create table if not exists public.reports (
+  id          uuid primary key default gen_random_uuid(),
+  reporter_id uuid not null references auth.users(id) on delete cascade,
+  target_type text not null check (target_type in ('session','comment','profile')),
+  target_id   uuid not null,
+  reason      text not null check (char_length(reason) between 1 and 1000),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists reports_created_idx on public.reports (created_at desc);
+
+alter table public.reports enable row level security;
+
+drop policy if exists "reports_insert_own" on public.reports;
+create policy "reports_insert_own" on public.reports
+  for insert with check (auth.uid() = reporter_id);
+drop policy if exists "reports_select_own" on public.reports;
+create policy "reports_select_own" on public.reports
+  for select using (auth.uid() = reporter_id);

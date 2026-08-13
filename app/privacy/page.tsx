@@ -6,9 +6,8 @@ export const metadata: Metadata = {
   description: "How FlowRoll handles your data.",
 };
 
-// Written from the app's actual data practices (see COMPLIANCE.md). Also the
-// URL WHOOP shows in its OAuth consent screen. Not legal advice — have a
-// lawyer review before relying on it commercially.
+// Written from the app's actual data practices (see COMPLIANCE.md).
+// Not legal advice — have a lawyer review before relying on it commercially.
 export default function PrivacyPage() {
   return (
     <main className="min-h-screen">
@@ -70,11 +69,6 @@ export default function PrivacyPage() {
                 clear it anytime from the chat page).
               </li>
               <li>
-                <b>WHOOP data (only if you connect it)</b> — recovery, strain,
-                heart rate, sleep, and workout data pulled from your WHOOP
-                account to enrich your own training view.
-              </li>
-              <li>
                 <b>Feedback</b> — anything you submit through the in-app
                 feedback form.
               </li>
@@ -94,9 +88,7 @@ export default function PrivacyPage() {
           <Section title="How we use it, and on what basis">
             To run the app you signed up for (performing our contract with
             you): showing your logbook and stats, powering the AI Coach,
-            letting you share sessions with people you choose, and — if
-            connected — correlating WHOOP metrics with your training (with
-            your consent, revocable in Settings). We also use limited data to
+            letting you share sessions with people you choose. We also use limited data to
             keep the service secure and prevent abuse (legitimate interest —
             e.g. rate limits). We do <b>not</b> sell your data and do not use
             it for advertising.
@@ -105,8 +97,7 @@ export default function PrivacyPage() {
           <Section title="The AI Coach">
             FlowRoll&apos;s Coach and weekly recap are powered by AI (Claude, from
             Anthropic). When you use them, your messages and relevant training
-            context — session summaries and, if connected, WHOOP metrics — are
-            sent to Anthropic&apos;s API to generate the response. Your
+            context (session summaries) are sent to Anthropic&apos;s API to generate the response. Your
             conversations are stored in our database until you clear them or
             delete your account. Under Anthropic&apos;s commercial terms, API
             inputs and outputs are <b>not used to train their models</b>;
@@ -131,10 +122,6 @@ export default function PrivacyPage() {
               <li>
                 <b>Vercel</b> — hosts and serves the application, including
                 standard server logs.
-              </li>
-              <li>
-                <b>WHOOP</b> — the source of your health data, only if you
-                connect it; disconnect anytime in Settings.
               </li>
               <li>
                 <b>Photon (OpenStreetMap / Komoot)</b> — powers gym-name
@@ -166,9 +153,8 @@ export default function PrivacyPage() {
             visible to signed-in users; a private account&apos;s sessions are
             visible only to followers you approve. Session photos and videos
             are stored privately and served through short-lived signed links.
-            Profile photos are public. Your <b>date of birth is never shown</b>,
-            and your <b>WHOOP / health data is never shared</b> with anyone —
-            it is visible only to you.
+            Profile photos are public. Your <b>date of birth is never
+            shown</b> to anyone.
           </Section>
 
           <Section title="Retention & deletion">
@@ -176,7 +162,7 @@ export default function PrivacyPage() {
             session, photo, or conversation removes it immediately, including
             the underlying files. Deleting your account (Settings → Danger
             zone) permanently removes your entire footprint — profile,
-            sessions, media, conversations, WHOOP data, social activity, and
+            sessions, media, conversations, social activity, and
             API keys — <b>immediately</b>. Copies in our encrypted backups
             expire within 90 days.
           </Section>

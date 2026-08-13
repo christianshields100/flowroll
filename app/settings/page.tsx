@@ -6,36 +6,27 @@ import { BeltStripePicker } from "@/components/BeltStripePicker";
 import { GymPicker } from "@/components/GymPicker";
 import { displayName } from "@/lib/profile";
 import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
-import { WhoopCard } from "./WhoopCard";
 import { ApiKeysCard } from "./ApiKeysCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { DangerZone } from "./DangerZone";
-import { whoopConfigured } from "@/lib/whoop";
 import { updateProfile } from "./actions";
-
-const WHOOP_NOTICES: Record<string, string> = {
-  connected: "WHOOP connected — your recent data is syncing in.",
-  denied: "WHOOP connection was cancelled.",
-  state: "Connection expired, please try again.",
-  exchange: "Couldn't complete the WHOOP handshake — try again.",
-  profile: "Connected, but couldn't read your WHOOP profile — try Sync now.",
-  unconfigured: "WHOOP isn't configured on this deployment yet.",
-};
 
 const inputCls =
   "w-full bg-paper border border-paper-line rounded-sm px-3 py-2.5 text-ink placeholder:text-ink-mute focus:outline-none focus:border-accent transition";
 
-export default async function SettingsPage({
-  searchParams,
-}: {
-  searchParams: { whoop?: string };
-}) {
+const dobMax = (() => {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 13);
+  return d.toISOString().slice(0, 10);
+})();
+
+export default async function SettingsPage() {
   const supabase = createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: whoop }, { data: apiKeys }] =
+  const [{ data: profile }, { data: apiKeys }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -45,19 +36,11 @@ export default async function SettingsPage({
         .eq("id", user!.id)
         .single(),
       supabase
-        .from("whoop_connections")
-        .select("last_synced_at")
-        .eq("user_id", user!.id)
-        .maybeSingle(),
-      supabase
         .from("api_keys")
         .select("id, name, prefix, scopes, created_at, last_used_at")
         .eq("revoked", false)
         .order("created_at", { ascending: false }),
     ]);
-  const whoopNotice = searchParams.whoop
-    ? WHOOP_NOTICES[searchParams.whoop]
-    : undefined;
 
   return (
     <AppShell profile={profile} active={null}>
@@ -114,6 +97,7 @@ export default async function SettingsPage({
         <Field label="Date of birth" hint="Private — never shown on your profile">
           <input
             type="date"
+            max={dobMax}
             name="dob"
             defaultValue={profile?.dob ?? ""}
             className={inputCls}
@@ -149,11 +133,6 @@ export default async function SettingsPage({
         </button>
       </form>
 
-      <WhoopCard
-        configured={whoopConfigured()}
-        connection={whoop ?? null}
-        notice={whoopNotice}
-      />
 
       <ApiKeysCard keys={apiKeys ?? []} />
 

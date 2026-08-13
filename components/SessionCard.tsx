@@ -3,8 +3,6 @@
 // black top rule, hairline chips, editorial labels.
 import { parseDateOnly, type SessionRow } from "@/lib/stats";
 import { SessionMedia } from "@/components/SessionMedia";
-import { WhoopChip } from "@/components/WhoopChip";
-import type { WhoopWorkout } from "@/lib/whoop";
 
 export type Belt = "white" | "blue" | "purple" | "brown" | "black";
 
@@ -46,13 +44,10 @@ export function SessionCard({
   session,
   author,
   footer,
-  whoop,
 }: {
   session: SessionRow;
   author?: { display_name: string; belt: Belt; stripes: number } | null;
   footer?: React.ReactNode;
-  // Owner-only: matched WHOOP workout. Never pass for other users' sessions.
-  whoop?: WhoopWorkout | null;
 }) {
   const date = parseDateOnly(session.trained_on).toLocaleDateString(undefined, {
     weekday: "short",
@@ -123,8 +118,6 @@ export function SessionCard({
       ) : null}
 
       <SessionMedia urls={session.media_urls} />
-
-      <WhoopChip w={whoop} />
 
       {footer}
     </li>

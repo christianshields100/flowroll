@@ -48,6 +48,9 @@ export default function Home() {
         <div className="mx-auto max-w-5xl px-6 py-6 flex items-center justify-between gap-4 text-[11px] text-ink-mute">
           <span>© 2026 FlowRoll · built for the mat</span>
           <span className="flex items-center gap-4">
+            <a href="/terms" className="hover:text-ink transition-colors">
+              Terms
+            </a>
             <a href="/privacy" className="hover:text-ink transition-colors">
               Privacy
             </a>

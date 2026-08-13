@@ -128,6 +128,18 @@ function LoginForm() {
                 <p className="text-sm text-accent mt-2">{errMsg}</p>
               )}
             </form>
+
+            <p className="mt-6 text-[11px] text-ink-mute leading-relaxed">
+              By continuing you agree to our{" "}
+              <a href="/terms" className="underline hover:text-ink transition-colors">
+                Terms
+              </a>{" "}
+              and{" "}
+              <a href="/privacy" className="underline hover:text-ink transition-colors">
+                Privacy Policy
+              </a>
+              . You must be 13 or older.
+            </p>
           </>
         )}
       </div>

@@ -18,6 +18,9 @@ export async function completeOnboarding(formData: FormData) {
   const first = (formData.get("first_name") ?? "").toString().trim() || null;
   const last = (formData.get("last_name") ?? "").toString().trim() || null;
   const dob = (formData.get("dob") ?? "").toString().trim() || null;
+  // Age gate (Terms §2): under-13 DoB is never saved; the date input's
+  // client-side max gives the visible feedback.
+  if (dob && isUnder13(dob)) return;
   const beltRaw = (formData.get("belt") ?? "").toString();
   const belt = BELTS.includes(beltRaw) ? beltRaw : "white";
   const stripes = Math.min(
@@ -44,4 +47,13 @@ export async function completeOnboarding(formData: FormData) {
     .eq("id", user.id);
 
   redirect("/dashboard");
+}
+
+// Age gate (Terms §2): 13+ enforced from date of birth, server-side.
+function isUnder13(dobStr: string): boolean {
+  const dob = new Date(dobStr + "T00:00:00");
+  if (isNaN(dob.getTime())) return false; // unparseable → let it through as null-ish
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - 13);
+  return dob > cutoff;
 }

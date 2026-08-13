@@ -27,7 +27,7 @@ export function DangerZone() {
       </p>
       <p className="mt-1 text-sm text-ink-mute">
         Deleting your account permanently removes everything — your profile,
-        sessions, photos and videos, Coach conversations, WHOOP data,
+        sessions, photos and videos, Coach conversations,
         followers, and API keys. Effective immediately; there is no undo.
       </p>
 

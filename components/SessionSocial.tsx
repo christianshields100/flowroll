@@ -13,6 +13,7 @@ import {
   toggleReaction,
 } from "@/app/feed/social-actions";
 import type { Belt } from "@/components/SessionCard";
+import { ReportButton } from "@/components/ReportButton";
 
 export type ReactionView = { emoji: Reaction; count: number; mine: boolean };
 export type CommentView = {
@@ -122,6 +123,7 @@ export function SessionSocial({
             ? `${comments.length} comment${comments.length > 1 ? "s" : ""}`
             : "Comment"}
         </button>
+        <ReportButton targetType="session" targetId={sessionId} />
       </div>
 
       {reactionTotal === 0 && comments.length === 0 && !open && (

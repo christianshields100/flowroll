@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 // Permanent account deletion (compliance item 5). The SECURITY DEFINER RPC
 // removes the user's storage objects and the auth.users row in one
 // transaction; every app table cascades from auth.users, so the entire
-// footprint — profile, sessions, media, chat, WHOOP data, feedback, API
+// footprint — profile, sessions, media, chat, feedback, API
 // keys, follows, reactions, comments — goes with it, immediately.
 export async function deleteMyAccount() {
   const supabase = createClient();
