@@ -9,6 +9,7 @@ import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
 import { WhoopCard } from "./WhoopCard";
 import { ApiKeysCard } from "./ApiKeysCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
+import { DangerZone } from "./DangerZone";
 import { whoopConfigured } from "@/lib/whoop";
 import { updateProfile } from "./actions";
 
@@ -159,6 +160,8 @@ export default async function SettingsPage({
       <section className="mt-12 max-w-2xl">
         <FeedbackCard context="settings" />
       </section>
+
+      <DangerZone />
     </AppShell>
   );
 }

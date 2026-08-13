@@ -965,3 +965,56 @@ create policy "feedback_insert_own" on public.feedback
 drop policy if exists "feedback_select_own" on public.feedback;
 create policy "feedback_select_own" on public.feedback
   for select using (auth.uid() = user_id);
+
+-- ============================================================
+-- v12: Compliance — account deletion + private session media
+-- ============================================================
+
+-- Full account deletion, callable by the signed-in user. Removes the
+-- user's storage objects, then the auth.users row; every app table
+-- references auth.users (directly or via profiles) with ON DELETE CASCADE,
+-- so the whole footprint goes in one transaction.
+create or replace function public.delete_my_account()
+returns void
+language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+begin
+  if uid is null then
+    raise exception 'not_signed_in';
+  end if;
+  -- Storage objects live under {user_id}/... in both buckets.
+  delete from storage.objects
+   where bucket_id in ('avatars', 'session-media')
+     and (storage.foldername(name))[1] = uid::text;
+  -- Cascades wipe profiles, sessions, media rows, chat, WHOOP, feedback,
+  -- api keys, follows, reactions, comments, usage counters.
+  delete from auth.users where id = uid;
+end;
+$$;
+
+grant execute on function public.delete_my_account() to authenticated;
+revoke execute on function public.delete_my_account() from anon;
+
+-- session-media goes PRIVATE: no more unauthenticated reads. Files are
+-- served via short-lived signed URLs minted server-side; minting requires
+-- a storage SELECT policy, granted to signed-in users (paths are
+-- unguessable and only ever distributed through RLS-gated session rows).
+update storage.buckets set public = false where id = 'session-media';
+
+drop policy if exists "session-media: public read" on storage.objects;
+drop policy if exists "session-media: authenticated read" on storage.objects;
+create policy "session-media: authenticated read" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'session-media');
+
+-- Migrate stored media_urls from full public URLs to bare object paths.
+update public.sessions
+   set media_urls = (
+     select coalesce(array_agg(
+       regexp_replace(u, '^.*/storage/v1/object/public/session-media/', '')
+     ), '{}')
+     from unnest(media_urls) u
+   )
+ where media_urls <> '{}';

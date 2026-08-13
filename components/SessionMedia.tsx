@@ -1,20 +1,40 @@
-// Photo/video grid on a session card (feed + profile). Server-safe markup —
-// native <video controls>, no client JS needed.
-import { isVideoUrl } from "@/lib/media";
+// Photo/video grid on a session card (feed + profile). Async server
+// component: stored refs are bare paths into the PRIVATE session-media
+// bucket, exchanged here for short-lived signed URLs. Legacy public URLs
+// (pre-v12 rows) normalize to paths first.
+import { createClient } from "@/lib/supabase/server";
+import {
+  isVideoUrl,
+  MEDIA_SIGNED_URL_TTL_SECONDS,
+  toMediaPath,
+} from "@/lib/media";
 
-export function SessionMedia({ urls }: { urls?: string[] }) {
-  if (!urls?.length) return null;
-  const single = urls.length === 1;
+export async function SessionMedia({ urls }: { urls?: string[] }) {
+  const paths = (urls ?? [])
+    .map(toMediaPath)
+    .filter((p): p is string => p !== null);
+  if (!paths.length) return null;
+
+  const supabase = createClient();
+  const { data } = await supabase.storage
+    .from("session-media")
+    .createSignedUrls(paths, MEDIA_SIGNED_URL_TTL_SECONDS);
+  const items = (data ?? [])
+    .map((d, i) => ({ url: d.signedUrl ?? "", path: paths[i], err: d.error }))
+    .filter((d) => d.url && !d.err);
+  if (!items.length) return null;
+
+  const single = items.length === 1;
   return (
     <div
       className={
         single ? "mt-3" : "mt-3 grid grid-cols-2 sm:grid-cols-3 gap-2"
       }
     >
-      {urls.map((url) =>
-        isVideoUrl(url) ? (
+      {items.map(({ url, path }) =>
+        isVideoUrl(path) ? (
           <video
-            key={url}
+            key={path}
             src={url}
             controls
             playsInline
@@ -28,7 +48,7 @@ export function SessionMedia({ urls }: { urls?: string[] }) {
         ) : (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            key={url}
+            key={path}
             src={url}
             alt="Session photo"
             loading="lazy"

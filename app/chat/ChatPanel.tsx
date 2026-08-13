@@ -193,14 +193,19 @@ export function ChatPanel({
               </button>
             </span>
           ) : (
-            <button
-              type="button"
-              onClick={() => setConfirmingClear(true)}
-              disabled={busy}
-              className="text-[11px] italic text-ink-mute hover:text-ink transition-colors disabled:opacity-50"
-            >
-              Burn the correspondence
-            </button>
+            <span className="flex items-center justify-between gap-3 w-full">
+              <span className="text-[11px] italic text-ink-mute">
+                Coach is AI-generated and isn&apos;t medical advice.
+              </span>
+              <button
+                type="button"
+                onClick={() => setConfirmingClear(true)}
+                disabled={busy}
+                className="text-[11px] italic text-ink-mute hover:text-ink transition-colors disabled:opacity-50"
+              >
+                Burn the correspondence
+              </button>
+            </span>
           )}
         </div>
       )}

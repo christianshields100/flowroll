@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { isSessionMediaUrl, MAX_MEDIA_PER_SESSION } from "@/lib/media";
+import { isSessionMediaRef, MAX_MEDIA_PER_SESSION, toMediaPath } from "@/lib/media";
 
 export type LogActionState =
   | { status: "idle" }
@@ -35,12 +35,14 @@ function parseSessionFields(formData: FormData):
   const subs_hit = parseSubs(formData.get("subs_hit"));
   const subs_caught_in = parseSubs(formData.get("subs_caught_in"));
   const partners = parseSubs(formData.get("partners"));
-  // Newline-joined public URLs from MediaUploader; only our own bucket counts.
+  // Newline-joined object paths from MediaUploader; only our own bucket's
+  // path shape counts (legacy public URLs normalize to paths).
   const media_urls = (formData.get("media_urls") ?? "")
     .toString()
     .split("\n")
     .map((s) => s.trim())
-    .filter((u) => u && isSessionMediaUrl(u))
+    .filter((u) => u && isSessionMediaRef(u))
+    .map((u) => toMediaPath(u)!)
     .slice(0, MAX_MEDIA_PER_SESSION);
 
   if (!trained_on || typeof trained_on !== "string") {
@@ -157,6 +159,21 @@ export async function deleteSession(sessionId: string): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user || !sessionId) return;
+
+  // Remove the session's storage objects too — deleting only the row would
+  // orphan the files (compliance item 5).
+  const { data: row } = await supabase
+    .from("sessions")
+    .select("media_urls")
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  const paths = ((row?.media_urls as string[]) ?? [])
+    .map(toMediaPath)
+    .filter((p): p is string => p !== null);
+  if (paths.length) {
+    await supabase.storage.from("session-media").remove(paths);
+  }
 
   await supabase
     .from("sessions")

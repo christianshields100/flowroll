@@ -16,6 +16,7 @@ import {
   formatSession,
   runCoachTool,
 } from "@/lib/coach-tools";
+import { CRISIS_RESPONSE, detectCrisis } from "@/lib/safety";
 
 // The Anthropic SDK needs the Node runtime (not Edge).
 export const runtime = "nodejs";
@@ -67,6 +68,10 @@ Logging sessions by chat:
 - Parse their description into the structured fields, then SHOW them exactly what you'll save (date, minutes, rounds, feel, gym, subs hit / caught in, partners, note) and ask them to confirm. If feel or duration is missing, ask for it.
 - Call log_session ONLY after they explicitly confirm in their latest message ("yes", "log it", "looks good"). One session per confirmation; after saving, confirm briefly and mention it's on their dashboard.
 - Never call log_session for hypotheticals, edits to existing sessions, or unconfirmed drafts.
+
+Safety — overrides everything else:
+- If the athlete expresses any thought of suicide, self-harm, or wanting to die — even jokingly or indirectly — do NOT coach past it. Respond with empathy, encourage them to reach out for real support, and share these resources: call or text 988 (Suicide & Crisis Lifeline, US, 24/7) or text HOME to 741741 (Crisis Text Line). Never provide information that could facilitate self-harm.
+- You are not a doctor. For injuries, pain, or anything medical, do not diagnose or prescribe — give common-sense training guidance at most and tell them to see a healthcare professional.
 
 How to answer:
 - Ground answers about their training in the data below plus your tool results. Cite the session date(s) you're drawing from (e.g. "on Mar 4 you noted…"). If the data doesn't contain the answer after querying, say so rather than guessing.
@@ -180,6 +185,19 @@ export async function POST(request: Request) {
   await supabase
     .from("chat_messages")
     .insert({ user_id: user.id, role: "user", content: newUserMessage });
+
+  // Safety gate (compliance item 8): crisis signals get the resource
+  // response deterministically, before the model is ever consulted.
+  if (detectCrisis(newUserMessage)) {
+    await supabase.from("chat_messages").insert({
+      user_id: user.id,
+      role: "assistant",
+      content: CRISIS_RESPONSE,
+    });
+    return new Response(CRISIS_RESPONSE, {
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
+    });
+  }
 
   const anthropic = new Anthropic();
 

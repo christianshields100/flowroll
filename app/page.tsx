@@ -45,9 +45,16 @@ export default function Home() {
       </section>
 
       <footer className="border-t border-paper-line">
-        <div className="mx-auto max-w-5xl px-6 py-6 flex items-center justify-between text-xs text-ink-mute font-mono">
-          <span>flowroll · v0</span>
-          <span>built for the mat</span>
+        <div className="mx-auto max-w-5xl px-6 py-6 flex items-center justify-between gap-4 text-[11px] text-ink-mute">
+          <span>© 2026 FlowRoll · built for the mat</span>
+          <span className="flex items-center gap-4">
+            <a href="/privacy" className="hover:text-ink transition-colors">
+              Privacy
+            </a>
+            <a href="/developers" className="hover:text-ink transition-colors">
+              API
+            </a>
+          </span>
         </div>
       </footer>
     </main>

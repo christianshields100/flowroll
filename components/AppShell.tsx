@@ -3,6 +3,7 @@
 // name · belt on the right with the belt name in its belt color.
 import Link from "next/link";
 import { displayName } from "@/lib/profile";
+import { SiteFooter } from "@/components/SiteFooter";
 
 type Belt = "white" | "blue" | "purple" | "brown" | "black";
 
@@ -103,6 +104,8 @@ export function AppShell({
           {children}
         </div>
       </main>
+
+      <SiteFooter />
     </div>
   );
 }
