@@ -125,6 +125,7 @@ export function TagInput({
           }}
           onKeyDown={onKeyDown}
           placeholder={tags.length === 0 ? placeholder : ""}
+          aria-label={placeholder || "Add a tag"}
           className="flex-1 min-w-[8rem] bg-transparent px-0 py-1 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none"
         />
       </div>

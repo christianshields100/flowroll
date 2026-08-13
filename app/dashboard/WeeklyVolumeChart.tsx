@@ -25,7 +25,7 @@ const TOOLTIP_STYLE = {
   color: "#0A0908",
 } as const;
 
-const TICK = { fontSize: 11, fill: "#8A857E" } as const;
+const TICK = { fontSize: 11, fill: "#726D65" } as const;
 const BASELINE = { stroke: "#0A0908", strokeWidth: 1 } as const;
 
 export function MatTimeChart({ data }: { data: PeriodBucket[] }) {
@@ -62,14 +62,14 @@ export function FeelTrendChart({ data }: { data: PeriodBucket[] }) {
         >
           <XAxis
             dataKey="label"
-            stroke="#8A857E"
+            stroke="#726D65"
             tickLine={false}
             axisLine={BASELINE}
             tick={TICK}
           />
           <YAxis
             yAxisId="volume"
-            stroke="#8A857E"
+            stroke="#726D65"
             tickLine={false}
             axisLine={false}
             tick={TICK}
@@ -133,13 +133,13 @@ function ChartFrame({
         >
           <XAxis
             dataKey="label"
-            stroke="#8A857E"
+            stroke="#726D65"
             tickLine={false}
             axisLine={BASELINE}
             tick={TICK}
           />
           <YAxis
-            stroke="#8A857E"
+            stroke="#726D65"
             tickLine={false}
             axisLine={false}
             tick={TICK}

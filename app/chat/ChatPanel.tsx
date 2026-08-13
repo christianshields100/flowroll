@@ -158,6 +158,7 @@ export function ChatPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about your game…"
+          aria-label="Message the Coach"
           disabled={busy}
           className="flex-1 bg-transparent border-b border-ink px-0 py-2.5 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none focus:border-b-accent transition-colors disabled:opacity-60"
         />
@@ -195,7 +196,7 @@ export function ChatPanel({
           ) : (
             <span className="flex items-center justify-between gap-3 w-full">
               <span className="text-[11px] italic text-ink-mute">
-                Coach is AI-generated and isn&apos;t medical advice.
+                Coach is AI-generated and can&apos;t give medical or injury advice.
               </span>
               <button
                 type="button"

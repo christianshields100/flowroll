@@ -123,3 +123,21 @@ node scripts/check-bucket-access.mjs  # bucket must reject unauthenticated reads
 Still on the owner's plate (non-code): DMCA agent registration
 (copyright.gov, ~$6), USPTO trademark search for "FlowRoll", lawyer review
 of /terms and /privacy, an accessibility pass.
+
+## Addendum — 2026-08-13 (third pass)
+
+- **Coach health/injury hard refusal**: deterministic `detectInjury` gate in
+  [lib/safety.ts](lib/safety.ts) returns a see-a-professional response before the model
+  runs (26 test cases — explicit injury/medical language triggers; "sore
+  from yesterday" does not); system prompt now forbids ALL health/injury/
+  medical answers and adds proactive injury-risk reminders; chat disclaimer
+  now reads "can't give medical or injury advice".
+- **Accessibility pass**: skip-to-content link, global `:focus-visible`
+  outline, `aria-current` on nav, aria-labels on all previously unlabeled
+  inputs (tags, gym, archive search, chat composer), and `ink-mute`
+  darkened #8A857E → #726D65 to pass WCAG AA 4.5:1 body-text contrast on
+  the paper background (charts updated to match).
+- **OSM attribution**: "Gym search © OpenStreetMap contributors" in the
+  gym picker dropdown (ODbL attribution).
+- **YouTube API terms language** pre-added to the privacy policy (required
+  by Google's developer terms the day the feature is enabled).

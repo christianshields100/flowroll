@@ -101,7 +101,7 @@ body {
   width: 4px;
   height: 4px;
   border-radius: 9999px;
-  background: #8a857e;
+  background: #726d65;
   margin-right: 3px;
 }
 @media (prefers-reduced-motion: no-preference) {
@@ -141,4 +141,30 @@ body {
 }
 .pressable:active {
   transform: translateY(1px);
+}
+
+/* ============================================================
+   Accessibility
+   ============================================================ */
+
+/* Visible keyboard focus everywhere (mouse clicks unaffected). */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Skip-to-content link: visually hidden until focused. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 8px 16px;
+  font-size: 13px;
+}
+.skip-link:focus {
+  left: 8px;
+  top: 8px;
 }

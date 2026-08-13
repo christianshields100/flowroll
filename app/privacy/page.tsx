@@ -135,9 +135,24 @@ export default function PrivacyPage() {
                 include your account id), when enabled.
               </li>
               <li>
-                <b>YouTube (Google)</b> — technique-video search queries
-                (derived from your submission stats, not your identity), when
-                enabled.
+                <b>YouTube (Google)</b> — when the study feature is enabled,
+                FlowRoll uses YouTube API Services to search technique videos
+                (queries derive from your submission stats, not your
+                identity). Use of that feature is also subject to the{" "}
+                <a
+                  href="https://www.youtube.com/t/terms"
+                  className="text-accent hover:underline"
+                >
+                  YouTube Terms of Service
+                </a>{" "}
+                and{" "}
+                <a
+                  href="https://policies.google.com/privacy"
+                  className="text-accent hover:underline"
+                >
+                  Google Privacy Policy
+                </a>
+                .
               </li>
             </ul>
             <p className="mt-2">

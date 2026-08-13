@@ -38,6 +38,9 @@ export function AppShell({
 }) {
   return (
     <div className="min-h-screen flex flex-col bg-paper">
+      <a href="#main" className="skip-link">
+        Skip to content
+      </a>
       <header className="border-b border-ink">
         <div className="mx-auto max-w-5xl px-5 sm:px-10 py-5 flex items-center justify-between gap-3 sm:gap-6">
           <Link
@@ -99,7 +102,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="flex-1">
+      <main id="main" className="flex-1">
         <div className="mx-auto max-w-5xl px-5 sm:px-10 py-9 sm:py-11">
           {children}
         </div>
@@ -123,6 +126,7 @@ function NavLink({
     <Link
       href={href}
       data-active={active}
+      aria-current={active ? "page" : undefined}
       className={
         active
           ? "link-grow text-ink font-semibold"

@@ -52,6 +52,7 @@ export function NotesSearch({ sessions }: { sessions: SessionRow[] }) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="Search the archive — notes, drilled, subs, partners…"
+        aria-label="Search your training archive"
         className="w-full bg-transparent border-b border-ink px-0 py-2 text-[15px] text-ink placeholder:italic placeholder:text-ink-mute focus:outline-none focus:border-accent transition-colors"
       />
 

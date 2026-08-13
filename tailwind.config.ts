@@ -22,7 +22,7 @@ const config: Config = {
         ink: {
           DEFAULT: "#0A0908", // primary text + strong rules (near-black)
           dim: "#4A4642",     // secondary
-          mute: "#8A857E",    // tertiary / labels
+          mute: "#726D65",    // tertiary / labels
           faint: "#A6A199",   // lightest muted / dashed borders
         },
         // Primary UI accent — red. Used sparingly: one accent per view.
