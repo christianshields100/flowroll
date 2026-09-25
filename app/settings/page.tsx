@@ -10,6 +10,7 @@ import { ApiKeysCard } from "./ApiKeysCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { DangerZone } from "./DangerZone";
 import { BeltHistoryList } from "./BeltHistoryList";
+import { NotificationPrefsCard } from "./NotificationPrefsCard";
 import type { BeltHistoryRow } from "@/lib/journey";
 import { updateProfile } from "./actions";
 
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
       supabase
         .from("profiles")
         .select(
-          "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
+          "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id, notification_prefs",
         )
         .eq("id", user!.id)
         .single(),
@@ -141,6 +142,14 @@ export default async function SettingsPage() {
 
 
       <BeltHistoryList rows={(beltRows ?? []) as BeltHistoryRow[]} />
+
+      <NotificationPrefsCard
+        initial={{
+          social: (profile?.notification_prefs as { social?: boolean } | null)?.social ?? true,
+          partners: (profile?.notification_prefs as { partners?: boolean } | null)?.partners ?? true,
+          journey: (profile?.notification_prefs as { journey?: boolean } | null)?.journey ?? true,
+        }}
+      />
 
       <ApiKeysCard keys={apiKeys ?? []} />
 

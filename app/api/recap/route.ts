@@ -124,6 +124,8 @@ export async function POST() {
       content,
       created_at: new Date().toISOString(),
     });
+    // In-app "your week is ready" notification (never email).
+    await supabase.rpc("notify_recap");
   }
 
   return Response.json({ content: content || null });

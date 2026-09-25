@@ -1191,3 +1191,239 @@ alter table public.sessions
   add column if not exists session_type text not null default 'training'
     check (session_type in ('training','open_mat','competition','private')),
   add column if not exists comp_result text;
+
+-- ============================================================
+-- v15: In-app notifications
+-- ============================================================
+
+-- Per-category opt-outs: {"social": false, "partners": false, "journey": false}
+alter table public.profiles
+  add column if not exists notification_prefs jsonb not null default '{}'::jsonb;
+
+create table if not exists public.notifications (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  type       text not null check (type in (
+               'follow_request','follow_accepted','new_follower','reaction',
+               'comment','partner_logged','milestone','promotion','recap')),
+  actor_id   uuid references auth.users(id) on delete cascade,
+  session_id uuid references public.sessions(id) on delete cascade,
+  data       jsonb not null default '{}'::jsonb,
+  read_at    timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_user_idx
+  on public.notifications (user_id, created_at desc);
+
+alter table public.notifications enable row level security;
+
+drop policy if exists "notifications_select_own" on public.notifications;
+create policy "notifications_select_own" on public.notifications
+  for select using (auth.uid() = user_id);
+drop policy if exists "notifications_update_own" on public.notifications;
+create policy "notifications_update_own" on public.notifications
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+-- No insert policy: rows are created only by the SECURITY DEFINER helpers.
+
+create or replace function public.notify_name(p_user uuid)
+returns text language sql stable security definer set search_path = public as $$
+  select coalesce(
+    nullif(btrim(coalesce(first_name,'') || ' ' || coalesce(last_name,'')), ''),
+    display_name)
+  from public.profiles where id = p_user;
+$$;
+
+-- Insert a notification unless the recipient muted its category or is the
+-- actor themselves. Actor name is denormalised at write time.
+create or replace function public.notify(
+  p_user uuid, p_type text, p_actor uuid, p_session uuid, p_data jsonb
+) returns void language plpgsql security definer set search_path = public as $$
+declare prefs jsonb; cat text;
+begin
+  if p_user is null or (p_actor is not null and p_user = p_actor) then return; end if;
+  select notification_prefs into prefs from public.profiles where id = p_user;
+  cat := case
+    when p_type in ('follow_request','follow_accepted','new_follower','reaction','comment') then 'social'
+    when p_type = 'partner_logged' then 'partners'
+    else 'journey' end;
+  if coalesce((prefs ->> cat)::boolean, true) = false then return; end if;
+  insert into public.notifications (user_id, type, actor_id, session_id, data)
+  values (p_user, p_type, p_actor, p_session,
+          coalesce(p_data, '{}'::jsonb)
+            || jsonb_build_object('actor_name', public.notify_name(p_actor)));
+end $$;
+
+-- Follows: request / accepted / new follower.
+create or replace function public.notify_on_follow()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if tg_op = 'INSERT' then
+    if new.status = 'pending' then
+      perform public.notify(new.followee_id, 'follow_request', new.follower_id, null, '{}');
+    else
+      perform public.notify(new.followee_id, 'new_follower', new.follower_id, null, '{}');
+    end if;
+  elsif tg_op = 'UPDATE' and old.status = 'pending' and new.status = 'accepted' then
+    perform public.notify(new.follower_id, 'follow_accepted', new.followee_id, null, '{}');
+    perform public.notify(new.followee_id, 'new_follower', new.follower_id, null, '{}');
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists notify_on_follow on public.follows;
+create trigger notify_on_follow
+  after insert or update of status on public.follows
+  for each row execute function public.notify_on_follow();
+
+-- Reactions: batched into one unread notification per session
+-- ("Dave and 2 others reacted") instead of one ping per emoji.
+create or replace function public.notify_on_reaction()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare owner uuid; existing uuid;
+begin
+  select user_id into owner from public.sessions where id = new.session_id;
+  if owner is null or owner = new.user_id then return new; end if;
+  select id into existing from public.notifications
+   where user_id = owner and type = 'reaction' and session_id = new.session_id
+     and read_at is null
+   order by created_at desc limit 1;
+  if existing is not null then
+    update public.notifications set
+      data = data || jsonb_build_object(
+        'count', coalesce((data->>'count')::int, 1) + 1,
+        'actors', (select jsonb_agg(distinct x)
+                     from jsonb_array_elements_text(
+                       coalesce(data->'actors', '[]'::jsonb) || to_jsonb(array[new.user_id::text])) x),
+        'actor_name', public.notify_name(new.user_id)),
+      actor_id = new.user_id,
+      created_at = now()
+    where id = existing;
+  else
+    perform public.notify(owner, 'reaction', new.user_id, new.session_id,
+      jsonb_build_object('count', 1, 'actors', to_jsonb(array[new.user_id::text]), 'emoji', new.emoji));
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists notify_on_reaction on public.session_reactions;
+create trigger notify_on_reaction
+  after insert on public.session_reactions
+  for each row execute function public.notify_on_reaction();
+
+-- Comments: the session owner, plus anyone else already in the thread.
+create or replace function public.notify_on_comment()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare owner uuid; r record; snippet text;
+begin
+  select user_id into owner from public.sessions where id = new.session_id;
+  snippet := left(btrim(new.body), 90);
+  perform public.notify(owner, 'comment', new.user_id, new.session_id,
+    jsonb_build_object('snippet', snippet));
+  for r in
+    select distinct user_id from public.session_comments
+     where session_id = new.session_id
+       and user_id <> new.user_id and user_id <> owner
+  loop
+    perform public.notify(r.user_id, 'comment', new.user_id, new.session_id,
+      jsonb_build_object('snippet', snippet, 'reply', true));
+  end loop;
+  return new;
+end $$;
+
+drop trigger if exists notify_on_comment on public.session_comments;
+create trigger notify_on_comment
+  after insert on public.session_comments
+  for each row execute function public.notify_on_comment();
+
+-- Sessions: tell named training partners (matched by name/handle), and fire
+-- milestone notifications when a session-count or hour mark is crossed.
+create or replace function public.notify_on_session()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare p text; r record; n integer; hrs numeric; prev_hrs numeric; m integer;
+begin
+  foreach p in array coalesce(new.partners, '{}'::text[]) loop
+    for r in
+      select id from public.profiles
+       where id <> new.user_id and (
+         lower(display_name) = lower(btrim(p)) or
+         lower(btrim(coalesce(first_name,'') || ' ' || coalesce(last_name,''))) = lower(btrim(p)))
+       limit 3
+    loop
+      perform public.notify(r.id, 'partner_logged', new.user_id, new.id,
+        jsonb_build_object('trained_on', new.trained_on));
+    end loop;
+  end loop;
+
+  select count(*), coalesce(sum(duration_min), 0) / 60.0 into n, hrs
+    from public.sessions where user_id = new.user_id;
+  prev_hrs := hrs - new.duration_min / 60.0;
+  if n in (10, 25, 50, 100, 250, 500, 1000) then
+    perform public.notify(new.user_id, 'milestone', null, new.id,
+      jsonb_build_object('kind', 'sessions', 'mark', n));
+  end if;
+  foreach m in array array[10, 25, 50, 100, 250, 500, 1000] loop
+    if prev_hrs < m and hrs >= m then
+      perform public.notify(new.user_id, 'milestone', null, new.id,
+        jsonb_build_object('kind', 'hours', 'mark', m));
+    end if;
+  end loop;
+  return new;
+end $$;
+
+drop trigger if exists notify_on_session on public.sessions;
+create trigger notify_on_session
+  after insert on public.sessions
+  for each row execute function public.notify_on_session();
+
+-- Promotions (from the belt-history trigger).
+create or replace function public.notify_on_promotion()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.kind = 'promotion' then
+    perform public.notify(new.user_id, 'promotion', null, null,
+      jsonb_build_object('belt', new.belt, 'stripes', new.stripes));
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists notify_on_promotion on public.belt_history;
+create trigger notify_on_promotion
+  after insert on public.belt_history
+  for each row execute function public.notify_on_promotion();
+
+-- Undo also retracts the promotion notification.
+create or replace function public.undo_last_promotion()
+returns void language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  latest public.belt_history%rowtype;
+  prev public.belt_history%rowtype;
+begin
+  if uid is null then raise exception 'not_signed_in'; end if;
+  select * into latest from public.belt_history
+   where user_id = uid order by promoted_on desc, created_at desc limit 1;
+  if not found or latest.kind <> 'promotion' then
+    raise exception 'nothing_to_undo';
+  end if;
+  select * into prev from public.belt_history
+   where user_id = uid and id <> latest.id
+   order by promoted_on desc, created_at desc limit 1;
+  if not found then raise exception 'nothing_to_undo'; end if;
+
+  perform set_config('flowroll.skip_belt_trigger', '1', true);
+  update public.profiles set belt = prev.belt, stripes = prev.stripes where id = uid;
+  delete from public.belt_history where id = latest.id;
+  delete from public.notifications
+   where user_id = uid and type = 'promotion' and created_at >= latest.created_at;
+end;
+$$;
+
+-- Weekly recap ready (called by the recap route after generating new text).
+create or replace function public.notify_recap()
+returns void language sql security definer set search_path = public as $$
+  select public.notify(auth.uid(), 'recap', null, null, '{}'::jsonb);
+$$;
+grant execute on function public.notify_recap() to authenticated;
+revoke execute on function public.notify_recap() from anon;

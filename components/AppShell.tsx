@@ -4,6 +4,9 @@
 import Link from "next/link";
 import { displayName } from "@/lib/profile";
 import { SiteFooter } from "@/components/SiteFooter";
+import { NotificationBell } from "@/components/NotificationBell";
+import { createClient } from "@/lib/supabase/server";
+import type { NotificationRow } from "@/lib/notifications";
 
 type Belt = "white" | "blue" | "purple" | "brown" | "black";
 
@@ -27,7 +30,7 @@ const BELT_TEXT: Record<Belt, string> = {
 
 const ROMAN = ["", "I", "II", "III", "IV"];
 
-export function AppShell({
+export async function AppShell({
   children,
   profile,
   active,
@@ -36,6 +39,28 @@ export function AppShell({
   profile: Profile | null;
   active: "dashboard" | "log" | "feed" | "chat" | null;
 }) {
+  // Recent notifications for the bell — one small query per page.
+  let items: NotificationRow[] = [];
+  let unread = 0;
+  if (profile?.id) {
+    const supabase = createClient();
+    const [{ data }, { count }] = await Promise.all([
+      supabase
+        .from("notifications")
+        .select("id, type, actor_id, session_id, data, read_at, created_at")
+        .eq("user_id", profile.id)
+        .order("created_at", { ascending: false })
+        .limit(25),
+      supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", profile.id)
+        .is("read_at", null),
+    ]);
+    items = (data ?? []) as NotificationRow[];
+    unread = count ?? 0;
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-paper">
       <a href="#main" className="skip-link">
@@ -66,6 +91,9 @@ export function AppShell({
           </nav>
 
           <div className="flex items-center gap-4">
+            {profile?.id && (
+              <NotificationBell items={items} unread={unread} meId={profile.id} />
+            )}
             {profile &&
               (profile.id ? (
                 <Link
