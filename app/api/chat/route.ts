@@ -16,6 +16,7 @@ import {
   formatSession,
   runCoachTool,
 } from "@/lib/coach-tools";
+import { journeyHeader, type BeltHistoryRow } from "@/lib/journey";
 import {
   CRISIS_RESPONSE,
   detectCrisis,
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
 
   // RLS scopes both queries to the signed-in user (plus followed users for
   // sessions, hence the explicit eq on user_id).
-  const [{ data: profile }, { data: sessions }] =
+  const [{ data: profile }, { data: sessions }, { data: beltRows }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -154,6 +155,10 @@ export async function POST(request: Request) {
         )
         .eq("user_id", user.id)
         .order("trained_on", { ascending: false }),
+      supabase
+        .from("belt_history")
+        .select("id, kind, belt, stripes, promoted_on, created_at")
+        .eq("user_id", user.id),
     ]);
 
   // Summary-only context; the retrieval tools cover the full history.
@@ -161,8 +166,12 @@ export async function POST(request: Request) {
   const totals = sessionTotals(rows);
   const recent = rows.slice(0, RECENT_SESSIONS_INLINE);
   const today = new Date().toISOString().slice(0, 10);
+  const journey = journeyHeader((beltRows ?? []) as BeltHistoryRow[], rows);
   const dataBlock = [
     `Today's date: ${today}`,
+    journey
+      ? `Rank: ${journey.rank}, ${journey.timeAtRank} at this rank (${journey.sessionsAtRank} sessions, ${journey.hoursAtRank}). Promotions are recorded automatically when the athlete updates their belt in Settings.`
+      : ``,
     `Athlete: ${profile?.display_name ?? "unknown"} — ${profile?.belt ?? "white"} belt, ${profile?.stripes ?? 0} stripe(s)`,
     `Lifetime: ${totals.total_sessions} sessions, ${formatHours(totals.total_min)} mat time, ${totals.total_rounds} rounds.`,
     ``,

@@ -8,7 +8,14 @@ type Mode = "hit" | "caught" | "net";
 // Fig. 6 — the ledger. A hairline-ruled table (name / hit / caught / net);
 // the Hit / Caught / Net text-links change the ranking. Positive net reads
 // red; the nemesis row carries an italic aside.
-export function SubmissionLedger({ sessions }: { sessions: SessionRow[] }) {
+export function SubmissionLedger({
+  sessions,
+  trends = {},
+}: {
+  sessions: SessionRow[];
+  // Per-submission trajectory from lib/insights (last 90d vs prior 90d).
+  trends?: Record<string, "improving" | "declining" | "steady">;
+}) {
   const [mode, setMode] = useState<Mode>("hit");
   const stats = useMemo(() => submissionStats(sessions), [sessions]);
 
@@ -56,6 +63,16 @@ export function SubmissionLedger({ sessions }: { sessions: SessionRow[] }) {
               <tr key={s.name} className="border-t border-paper-line">
                 <td className="py-2 text-ink">
                   {s.name}
+                  {trends[s.name] === "improving" && (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-dojo text-accent" title="Finish rate up vs the prior 90 days">
+                      ▲ improving
+                    </span>
+                  )}
+                  {trends[s.name] === "declining" && (
+                    <span className="ml-1.5 text-[10px] uppercase tracking-dojo text-ink-mute" title="Finish rate down vs the prior 90 days">
+                      ▼ slipping
+                    </span>
+                  )}
                   {nemesis?.name === s.name && (
                     <span className="italic text-ink-mute">
                       {" "}

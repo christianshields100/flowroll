@@ -83,7 +83,7 @@ export default async function LogPage({
     const { data } = await supabase
       .from("sessions")
       .select(
-        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, gym_place_id, drilled, note, media_urls, created_at",
+        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, gym_place_id, drilled, note, media_urls, session_type, comp_result, created_at",
       )
       .eq("id", searchParams.edit)
       .eq("user_id", user!.id)

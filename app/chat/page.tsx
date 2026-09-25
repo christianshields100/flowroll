@@ -2,7 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import { AppShell } from "@/components/AppShell";
 import { ChatPanel } from "./ChatPanel";
 
-export default async function ChatPage() {
+export default async function ChatPage({
+  searchParams,
+}: {
+  searchParams: { q?: string };
+}) {
   const supabase = createClient();
   const {
     data: { user },
@@ -45,7 +49,10 @@ export default async function ChatPage() {
         </div>
 
         <div className="rise rise-2 mt-8">
-          <ChatPanel initialMessages={initialMessages} />
+          <ChatPanel
+            initialMessages={initialMessages}
+            initialQuery={(searchParams.q ?? "").slice(0, 500)}
+          />
         </div>
       </div>
     </AppShell>

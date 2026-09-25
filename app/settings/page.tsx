@@ -9,6 +9,8 @@ import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
 import { ApiKeysCard } from "./ApiKeysCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { DangerZone } from "./DangerZone";
+import { BeltHistoryList } from "./BeltHistoryList";
+import type { BeltHistoryRow } from "@/lib/journey";
 import { updateProfile } from "./actions";
 
 const inputCls =
@@ -26,7 +28,7 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: apiKeys }] =
+  const [{ data: profile }, { data: apiKeys }, { data: beltRows }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -40,6 +42,10 @@ export default async function SettingsPage() {
         .select("id, name, prefix, scopes, created_at, last_used_at")
         .eq("revoked", false)
         .order("created_at", { ascending: false }),
+      supabase
+        .from("belt_history")
+        .select("id, kind, belt, stripes, promoted_on, created_at")
+        .eq("user_id", user!.id),
     ]);
 
   return (
@@ -133,6 +139,8 @@ export default async function SettingsPage() {
         </button>
       </form>
 
+
+      <BeltHistoryList rows={(beltRows ?? []) as BeltHistoryRow[]} />
 
       <ApiKeysCard keys={apiKeys ?? []} />
 

@@ -1051,3 +1051,143 @@ create policy "reports_insert_own" on public.reports
 drop policy if exists "reports_select_own" on public.reports;
 create policy "reports_select_own" on public.reports
   for select using (auth.uid() = reporter_id);
+
+-- ============================================================
+-- v14: Journey — belt history (auto-captured), session types
+-- ============================================================
+
+-- Numeric rank so belt/stripe changes can be compared. white=0..black=4,
+-- five slots per belt for stripes.
+create or replace function public.belt_rank(p_belt text, p_stripes integer)
+returns integer language sql immutable as $$
+  select (array_position(array['white','blue','purple','brown','black'], p_belt) - 1) * 5
+         + coalesce(p_stripes, 0);
+$$;
+
+-- One row per rank the athlete has held. 'start' = the rank they had when
+-- they began tracking; 'promotion' = a rank increase captured from the
+-- profile belt/stripes change. Nothing here is typed by hand: a trigger on
+-- profiles maintains it.
+create table if not exists public.belt_history (
+  id          uuid primary key default gen_random_uuid(),
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  kind        text not null check (kind in ('start','promotion')),
+  belt        text not null check (belt in ('white','blue','purple','brown','black')),
+  stripes     smallint not null default 0 check (stripes between 0 and 4),
+  promoted_on date not null default current_date,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists belt_history_user_idx
+  on public.belt_history (user_id, promoted_on, created_at);
+
+alter table public.belt_history enable row level security;
+
+drop policy if exists "belt_history_select_own" on public.belt_history;
+create policy "belt_history_select_own" on public.belt_history
+  for select using (auth.uid() = user_id);
+-- Users may correct dates; inserts/deletes go through the trigger + RPC.
+drop policy if exists "belt_history_update_own" on public.belt_history;
+create policy "belt_history_update_own" on public.belt_history
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+-- Trigger: capture rank changes from the profile.
+--  * during onboarding (old.onboarded = false): the chosen rank is the
+--    'start' row, not a promotion
+--  * rank up: insert a 'promotion' (seeding a 'start' from the old rank
+--    if history is empty, dated at profile creation)
+--  * rank down: BJJ has no demotions, so treat it as a correction — remove
+--    the most recent promotion if it matches the rank being backed out
+--  * skipped entirely when flowroll.skip_belt_trigger is set (undo RPC)
+create or replace function public.track_belt_change()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare
+  old_rank integer := public.belt_rank(old.belt, old.stripes);
+  new_rank integer := public.belt_rank(new.belt, new.stripes);
+  latest public.belt_history%rowtype;
+begin
+  if current_setting('flowroll.skip_belt_trigger', true) = '1' then
+    return new;
+  end if;
+
+  if not old.onboarded then
+    delete from public.belt_history where user_id = new.id and kind = 'start';
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (new.id, 'start', new.belt, new.stripes, current_date);
+    return new;
+  end if;
+
+  if new_rank = old_rank then
+    return new;
+  end if;
+
+  if not exists (select 1 from public.belt_history where user_id = new.id) then
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (new.id, 'start', old.belt, old.stripes, old.created_at::date);
+  end if;
+
+  if new_rank > old_rank then
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (new.id, 'promotion', new.belt, new.stripes, current_date);
+  else
+    select * into latest from public.belt_history
+     where user_id = new.id
+     order by promoted_on desc, created_at desc limit 1;
+    if found and latest.kind = 'promotion'
+       and public.belt_rank(latest.belt, latest.stripes) = old_rank then
+      delete from public.belt_history where id = latest.id;
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_track_belt on public.profiles;
+create trigger profiles_track_belt
+  after update of belt, stripes, onboarded on public.profiles
+  for each row execute function public.track_belt_change();
+
+-- Undo the most recent promotion: remove its row and put the profile back
+-- to the previous rank, with the trigger suppressed. All journey stats are
+-- derived at read time, so nothing else needs restoring.
+create or replace function public.undo_last_promotion()
+returns void language plpgsql security definer set search_path = public
+as $$
+declare
+  uid uuid := auth.uid();
+  latest public.belt_history%rowtype;
+  prev public.belt_history%rowtype;
+begin
+  if uid is null then raise exception 'not_signed_in'; end if;
+  select * into latest from public.belt_history
+   where user_id = uid order by promoted_on desc, created_at desc limit 1;
+  if not found or latest.kind <> 'promotion' then
+    raise exception 'nothing_to_undo';
+  end if;
+  select * into prev from public.belt_history
+   where user_id = uid and id <> latest.id
+   order by promoted_on desc, created_at desc limit 1;
+  if not found then raise exception 'nothing_to_undo'; end if;
+
+  perform set_config('flowroll.skip_belt_trigger', '1', true);
+  update public.profiles set belt = prev.belt, stripes = prev.stripes where id = uid;
+  delete from public.belt_history where id = latest.id;
+end;
+$$;
+
+grant execute on function public.undo_last_promotion() to authenticated;
+revoke execute on function public.undo_last_promotion() from anon;
+
+-- Backfill: every onboarded profile gets a 'start' row at its current rank.
+insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+select p.id, 'start', p.belt, p.stripes, p.created_at::date
+  from public.profiles p
+ where p.onboarded
+   and not exists (select 1 from public.belt_history h where h.user_id = p.id);
+
+-- Session types: competitions become first-class journey events.
+alter table public.sessions
+  add column if not exists session_type text not null default 'training'
+    check (session_type in ('training','open_mat','competition','private')),
+  add column if not exists comp_result text;

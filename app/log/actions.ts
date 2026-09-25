@@ -58,11 +58,21 @@ function parseSessionFields(formData: FormData):
     return { ok: false, message: "Pick a feel rating (1–5)." };
   }
 
+  const SESSION_TYPES = ["training", "open_mat", "competition", "private"];
+  const typeRaw = (formData.get("session_type") ?? "training").toString();
+  const session_type = SESSION_TYPES.includes(typeRaw) ? typeRaw : "training";
+  const comp_result =
+    session_type === "competition"
+      ? (formData.get("comp_result") ?? "").toString().trim().slice(0, 120) || null
+      : null;
+
   return {
     ok: true,
     fields: {
       trained_on,
       duration_min,
+      session_type,
+      comp_result,
       rounds,
       feel,
       gym,

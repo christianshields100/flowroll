@@ -47,6 +47,9 @@ export function LogForm({
     initialState,
   );
   const [feel, setFeel] = useState<number>(editSession?.feel ?? 3);
+  const [sessionType, setSessionType] = useState<string>(
+    editSession?.session_type ?? "training",
+  );
   // Remounts MediaUploader (clearing its internal list) after a save.
   const [mediaKey, setMediaKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
@@ -64,6 +67,42 @@ export function LogForm({
       {editing && (
         <input type="hidden" name="session_id" value={editSession.id} />
       )}
+      <Field label="Kind of session" asDiv>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["training", "Class"],
+            ["open_mat", "Open mat"],
+            ["private", "Private"],
+            ["competition", "Competition"],
+          ].map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setSessionType(v)}
+              aria-pressed={sessionType === v}
+              className={
+                sessionType === v
+                  ? "pressable text-[12px] px-3 py-1 border border-ink bg-ink text-paper"
+                  : "pressable text-[12px] px-3 py-1 border border-paper-input text-ink-dim hover:border-ink hover:text-ink"
+              }
+            >
+              {label}
+            </button>
+          ))}
+          <input type="hidden" name="session_type" value={sessionType} />
+        </div>
+        {sessionType === "competition" && (
+          <input
+            type="text"
+            name="comp_result"
+            placeholder="Result — e.g. gold at blue/adult, 2–1"
+            maxLength={120}
+            defaultValue={editSession?.comp_result ?? ""}
+            className={`${inputCls} mt-3`}
+          />
+        )}
+      </Field>
+
       <div className="grid sm:grid-cols-3 gap-5">
         <Field label="Date">
           <input

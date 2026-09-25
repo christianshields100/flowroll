@@ -13,7 +13,9 @@ export type SessionRow = {
   gym_place_id?: string | null;
   drilled: string | null;
   note: string | null;
-  media_urls?: string[]; // public session-media URLs (photos/videos)
+  media_urls?: string[]; // session-media object paths (photos/videos)
+  session_type?: "training" | "open_mat" | "competition" | "private";
+  comp_result?: string | null;
   created_at: string;
 };
 

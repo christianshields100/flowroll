@@ -15,11 +15,14 @@ const STARTERS = [
 
 export function ChatPanel({
   initialMessages = [],
+  initialQuery = "",
 }: {
   initialMessages?: ChatMessage[];
+  // Prefilled question from a dashboard "ask Coach" link.
+  initialQuery?: string;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialQuery);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmingClear, setConfirmingClear] = useState(false);
