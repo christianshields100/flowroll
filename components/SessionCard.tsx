@@ -67,6 +67,7 @@ export function SessionCard({
           <span className="text-[11px] uppercase tracking-dojo text-ink-mute">
             {date}
             {session.gym ? ` · ${session.gym}` : ""}
+            {session.attire ? ` · ${session.attire === "gi" ? "Gi" : "No-gi"}` : ""}
           </span>
         </div>
         <span className="text-[13px] num text-ink-dim whitespace-nowrap">

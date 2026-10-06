@@ -58,7 +58,7 @@ export async function GET(req: Request) {
 /**
  * POST /api/v1/sessions — log a session (requires a key with the `write`
  * scope). Body: { trained_on, duration_min, rounds?, gym?, feel?,
- * subs_hit?, subs_caught_in?, partners?, drilled?, note? }
+ * subs_hit?, subs_caught_in?, partners?, drilled?, note?, attire? ("gi"|"nogi") }
  */
 export async function POST(req: Request) {
   const keyHash = bearerHash(req);
@@ -100,6 +100,7 @@ export async function POST(req: Request) {
     p_drilled:
       typeof body.drilled === "string" ? body.drilled.slice(0, 500) : null,
     p_note: typeof body.note === "string" ? body.note.slice(0, 2000) : null,
+    p_attire: body.attire === "gi" || body.attire === "nogi" ? body.attire : null,
   });
   if (error) return mapRpcError(error.message);
 

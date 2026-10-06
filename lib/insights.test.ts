@@ -84,6 +84,18 @@ describe("generateInsights", () => {
   });
 });
 
+describe("gi / no-gi insight", () => {
+  it("calls out a lopsided split and stays quiet without attire data", () => {
+    const untagged = Array.from({ length: 6 }, (_, i) => session({ trained_on: daysAgo(i * 3) }));
+    expect(generateInsights(untagged, TODAY).some((x) => x.topic.startsWith("attire:"))).toBe(false);
+    const allGi = untagged.map((s) => ({ ...s, attire: "gi" as const }));
+    const lopsided = generateInsights(allGi, TODAY).find((x) => x.topic === "attire:lopsided");
+    expect(lopsided?.text).toMatch(/100% of your last 6 sessions were gi/);
+    const mixed = allGi.map((s, i) => ({ ...s, attire: i % 2 ? ("nogi" as const) : ("gi" as const) }));
+    expect(generateInsights(mixed, TODAY).find((x) => x.topic === "attire:split")?.text).toMatch(/50% gi, 50% no-gi/);
+  });
+});
+
 describe("taxonomy", () => {
   it("classifies drilled text into categories", () => {
     expect(classifyText("knee cut pass from headquarters")).toContain("passing");

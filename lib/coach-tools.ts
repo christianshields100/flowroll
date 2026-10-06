@@ -13,7 +13,7 @@ import { searchStudyVideos, videoUrl, youtubeConfigured } from "@/lib/youtube";
 type SupabaseServer = ReturnType<typeof createClient>;
 
 const SESSION_COLS =
-  "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at";
+  "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, attire, created_at";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -22,6 +22,7 @@ export function formatSession(s: SessionRow): string {
   const parts = [
     `${s.trained_on}: ${s.duration_min}min, ${s.rounds} rounds, feel ${s.feel}/5`,
   ];
+  if (s.attire) parts.push(s.attire === "gi" ? "gi" : "no-gi");
   if (s.gym) parts.push(`gym: ${s.gym}`);
   if (s.drilled) parts.push(`drilled: ${s.drilled}`);
   if (s.subs_hit?.length) parts.push(`subs hit: ${s.subs_hit.join(", ")}`);
@@ -118,6 +119,11 @@ export const COACH_TOOL_DEFINITIONS: Anthropic.Tool[] = [
           description: "How it felt, 1–5. Ask the athlete if they didn't say.",
         },
         gym: { type: "string", description: "Gym name, if mentioned." },
+        attire: {
+          type: "string",
+          enum: ["gi", "nogi"],
+          description: "Gi or no-gi, if the athlete said (don't guess).",
+        },
         drilled: {
           type: "string",
           description: "What they drilled, if mentioned.",
@@ -250,6 +256,7 @@ export async function runCoachTool(
         rounds?: number;
         feel?: number;
         gym?: string;
+        attire?: string;
         drilled?: string;
         subs_hit?: string[];
         subs_caught_in?: string[];
@@ -280,6 +287,7 @@ export async function runCoachTool(
           rounds,
           feel,
           gym: a.gym?.trim() || null,
+          attire: a.attire === "gi" || a.attire === "nogi" ? a.attire : null,
           drilled: a.drilled?.trim() || null,
           note: a.note?.trim() || null,
           subs_hit: clean(a.subs_hit),

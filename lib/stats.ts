@@ -16,6 +16,7 @@ export type SessionRow = {
   media_urls?: string[]; // session-media object paths (photos/videos)
   session_type?: "training" | "open_mat" | "competition" | "private";
   comp_result?: string | null;
+  attire?: "gi" | "nogi" | null;
   created_at: string;
 };
 

@@ -278,6 +278,29 @@ export function generateInsights(
     }
   }
 
+  // --- Gi / no-gi balance (last 90 days, only once enough sessions say) ---
+  const a90 = new Date(today.getTime() - 90 * DAY);
+  const tagged = sessions.filter((s) => s.attire && inWindow(s, a90, new Date(today.getTime() + DAY)));
+  if (tagged.length >= INSIGHTS_MIN_SESSIONS) {
+    const gi = tagged.filter((s) => s.attire === "gi").length;
+    const giPct = Math.round((gi / tagged.length) * 100);
+    if (giPct >= 85 || giPct <= 15) {
+      const heavy = giPct >= 85 ? "gi" : "no-gi";
+      const light = heavy === "gi" ? "no-gi" : "gi";
+      out.push({
+        kind: "info",
+        topic: "attire:lopsided",
+        text: `${Math.max(giPct, 100 - giPct)}% of your last ${tagged.length} sessions were ${heavy}. If you compete or want a complete game, a ${light} class now and then keeps the other half honest.`,
+      });
+    } else {
+      out.push({
+        kind: "info",
+        topic: "attire:split",
+        text: `${giPct}% gi, ${100 - giPct}% no-gi over your last ${tagged.length} sessions — a balanced split.`,
+      });
+    }
+  }
+
   // Good news first, then things to watch, then context. Cap the list.
   const order = { good: 0, watch: 1, info: 2 };
   return out.sort((a, b) => order[a.kind] - order[b.kind]).slice(0, 8);

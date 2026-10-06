@@ -83,7 +83,7 @@ export default function DevelopersPage() {
               <Mono>duration_min</Mono>, <Mono>rounds</Mono>, <Mono>gym</Mono>,{" "}
               <Mono>feel</Mono> (1–5), <Mono>subs_hit</Mono>,{" "}
               <Mono>subs_caught_in</Mono>, <Mono>partners</Mono>,{" "}
-              <Mono>drilled</Mono>, <Mono>note</Mono>, <Mono>media_urls</Mono>.
+              <Mono>drilled</Mono>, <Mono>note</Mono>, <Mono>attire</Mono> (<Mono>gi</Mono> | <Mono>nogi</Mono> | null), <Mono>media_urls</Mono>.
             </p>
             <p className="mt-2">
               Fetch one by id: <Mono>GET /api/v1/sessions/:id</Mono>

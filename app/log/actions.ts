@@ -61,6 +61,8 @@ function parseSessionFields(formData: FormData):
   const SESSION_TYPES = ["training", "open_mat", "competition", "private"];
   const typeRaw = (formData.get("session_type") ?? "training").toString();
   const session_type = SESSION_TYPES.includes(typeRaw) ? typeRaw : "training";
+  const attireRaw = (formData.get("attire") ?? "").toString();
+  const attire = attireRaw === "gi" || attireRaw === "nogi" ? attireRaw : null;
   const comp_result =
     session_type === "competition"
       ? (formData.get("comp_result") ?? "").toString().trim().slice(0, 120) || null
@@ -73,6 +75,7 @@ function parseSessionFields(formData: FormData):
       duration_min,
       session_type,
       comp_result,
+      attire,
       rounds,
       feel,
       gym,

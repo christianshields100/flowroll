@@ -21,6 +21,7 @@ export function LogForm({
   uid,
   defaultGym,
   defaultGymPlaceId,
+  defaultAttire,
   subSuggestions,
   partnerSuggestions,
   editSession = null,
@@ -31,6 +32,7 @@ export function LogForm({
   uid: string;
   defaultGym: string | null;
   defaultGymPlaceId: string | null;
+  defaultAttire: "gi" | "nogi" | null;
   subSuggestions: string[];
   partnerSuggestions: string[];
   // When set, the form edits this session instead of creating a new one.
@@ -49,6 +51,9 @@ export function LogForm({
   const [feel, setFeel] = useState<number>(editSession?.feel ?? 3);
   const [sessionType, setSessionType] = useState<string>(
     editSession?.session_type ?? "training",
+  );
+  const [attire, setAttire] = useState<"gi" | "nogi" | "">(
+    editSession ? (editSession.attire ?? "") : (defaultAttire ?? ""),
   );
   // Remounts MediaUploader (clearing its internal list) after a save.
   const [mediaKey, setMediaKey] = useState(0);
@@ -101,6 +106,30 @@ export function LogForm({
             className={`${inputCls} mt-3`}
           />
         )}
+      </Field>
+
+      <Field label="Gi or no-gi" asDiv>
+        <div className="flex flex-wrap gap-2">
+          {[
+            ["gi", "Gi"],
+            ["nogi", "No-gi"],
+          ].map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setAttire(attire === v ? "" : (v as "gi" | "nogi"))}
+              aria-pressed={attire === v}
+              className={
+                attire === v
+                  ? "pressable text-[12px] px-3 py-1 border border-ink bg-ink text-paper"
+                  : "pressable text-[12px] px-3 py-1 border border-paper-input text-ink-dim hover:border-ink hover:text-ink"
+              }
+            >
+              {label}
+            </button>
+          ))}
+          <input type="hidden" name="attire" value={attire} />
+        </div>
       </Field>
 
       <div className="grid sm:grid-cols-3 gap-5">

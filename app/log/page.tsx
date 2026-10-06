@@ -27,7 +27,7 @@ export default async function LogPage({
   const [{ data: pastSessions }, { count: sessionCount }] = await Promise.all([
     supabase
       .from("sessions")
-      .select("gym, gym_place_id, subs_hit, subs_caught_in, partners")
+      .select("gym, gym_place_id, subs_hit, subs_caught_in, partners, attire")
       .eq("user_id", user!.id)
       .order("trained_on", { ascending: false })
       .limit(200),
@@ -44,6 +44,9 @@ export default async function LogPage({
   const defaultGym = lastWithGym?.gym ?? profile?.home_gym_name ?? null;
   const defaultGymPlaceId =
     lastWithGym?.gym_place_id ?? profile?.home_gym_place_id ?? null;
+  // Gi/no-gi sticks to whatever you logged last; first-timers pick.
+  const defaultAttire =
+    (past.find((s) => s.attire)?.attire as "gi" | "nogi" | undefined) ?? null;
   const pastSubs = past.flatMap((s) => [
     ...(s.subs_hit ?? []),
     ...(s.subs_caught_in ?? []),
@@ -83,7 +86,7 @@ export default async function LogPage({
     const { data } = await supabase
       .from("sessions")
       .select(
-        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, gym_place_id, drilled, note, media_urls, session_type, comp_result, created_at",
+        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, gym_place_id, drilled, note, media_urls, session_type, comp_result, attire, created_at",
       )
       .eq("id", searchParams.edit)
       .eq("user_id", user!.id)
@@ -119,6 +122,7 @@ export default async function LogPage({
           }
           defaultGym={defaultGym}
           defaultGymPlaceId={defaultGymPlaceId}
+          defaultAttire={defaultAttire}
           subSuggestions={subSuggestions}
           partnerSuggestions={partnerSuggestions}
           editSession={editSession}

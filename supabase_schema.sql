@@ -1427,3 +1427,51 @@ returns void language sql security definer set search_path = public as $$
 $$;
 grant execute on function public.notify_recap() to authenticated;
 revoke execute on function public.notify_recap() from anon;
+
+-- ============================================================
+-- v16: Gi / No-gi on sessions
+-- ============================================================
+
+-- Nullable on purpose: older rows (and quick logs) simply don't say.
+alter table public.sessions
+  add column if not exists attire text
+    check (attire is null or attire in ('gi','nogi'));
+
+-- Public API: accept attire on create (api_get_* use select *, so reads
+-- already include it).
+drop function if exists public.api_create_session(text, date, integer, integer, text, smallint, text[], text[], text[], text, text);
+create or replace function public.api_create_session(
+  p_key_hash text,
+  p_trained_on date,
+  p_duration_min integer,
+  p_rounds integer default 0,
+  p_gym text default null,
+  p_feel smallint default 3,
+  p_subs_hit text[] default '{}',
+  p_subs_caught_in text[] default '{}',
+  p_partners text[] default '{}',
+  p_drilled text default null,
+  p_note text default null,
+  p_attire text default null
+) returns public.sessions
+language plpgsql security definer set search_path = public
+as $$
+declare uid uuid; s public.sessions;
+begin
+  uid := public.api_authenticate(p_key_hash, 'write');
+  if p_attire is not null and p_attire not in ('gi','nogi') then
+    raise exception 'attire must be gi or nogi';
+  end if;
+  insert into public.sessions
+    (user_id, trained_on, duration_min, rounds, gym, feel,
+     subs_hit, subs_caught_in, partners, drilled, note, attire)
+  values
+    (uid, p_trained_on, p_duration_min, coalesce(p_rounds, 0), p_gym,
+     coalesce(p_feel, 3), coalesce(p_subs_hit, '{}'),
+     coalesce(p_subs_caught_in, '{}'), coalesce(p_partners, '{}'),
+     p_drilled, p_note, p_attire)
+  returning * into s;
+  return s;
+end;
+$$;
+grant execute on function public.api_create_session(text, date, integer, integer, text, smallint, text[], text[], text[], text, text, text) to anon, authenticated;

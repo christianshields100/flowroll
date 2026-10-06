@@ -70,7 +70,7 @@ export default async function ProfilePage({
     const { data } = await supabase
       .from("sessions")
       .select(
-        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, media_urls, created_at",
+        "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, attire, media_urls, created_at",
       )
       .eq("user_id", target.id)
       .order("trained_on", { ascending: false })

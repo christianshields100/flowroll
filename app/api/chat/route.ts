@@ -151,7 +151,7 @@ export async function POST(request: Request) {
       supabase
         .from("sessions")
         .select(
-          "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, created_at",
+          "id, trained_on, duration_min, rounds, subs_hit, subs_caught_in, partners, feel, gym, drilled, note, attire, created_at",
         )
         .eq("user_id", user.id)
         .order("trained_on", { ascending: false }),
