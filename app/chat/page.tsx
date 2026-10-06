@@ -38,13 +38,13 @@ export default async function ChatPage({
       <div className="max-w-[680px] mx-auto">
         <div className="rise text-center border-b border-ink pb-6">
           <p className="text-[11px] uppercase tracking-dojo text-ink-mute">
-            Correspondence with
+            Your AI coaching resource
           </p>
           <h1 className="mt-2 text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">
             The Coach.
           </h1>
           <p className="mt-2 text-sm italic text-ink-mute">
-            Reads your entire log. Politely declines everything else.
+            Reads your entire log and answers from it. Not a doctor, not a referee.
           </p>
         </div>
 
