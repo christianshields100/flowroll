@@ -33,6 +33,91 @@ export function formatSession(s: SessionRow): string {
   return "- " + parts.join(" | ");
 }
 
+const SESSION_INPUT_PROPS: Record<string, unknown> = {
+  trained_on: {
+    type: "string",
+    description: "Session date, YYYY-MM-DD ('today' resolves via the date in context).",
+  },
+  duration_min: { type: "number", description: "Mat time in minutes (1–599)." },
+  rounds: { type: "number", description: "Rounds rolled (0–99). Default 0 if unknown." },
+  feel: { type: "number", description: "How it felt, 1–5. Default 3 if they didn't say." },
+  gym: { type: "string", description: "Gym name, if mentioned." },
+  session_type: {
+    type: "string",
+    enum: ["training", "open_mat", "competition", "private"],
+    description: "Kind of session. Default training.",
+  },
+  comp_result: { type: "string", description: "Competition result, if it was a competition." },
+  attire: {
+    type: "string",
+    enum: ["gi", "nogi"],
+    description: "Gi or no-gi, if the athlete said (don't guess).",
+  },
+  drilled: { type: "string", description: "What they drilled, if mentioned." },
+  subs_hit: { type: "array", items: { type: "string" }, description: "Submissions they finished." },
+  subs_caught_in: { type: "array", items: { type: "string" }, description: "Submissions they got caught in." },
+  partners: { type: "array", items: { type: "string" }, description: "Training partners mentioned by name." },
+  note: { type: "string", description: "Free-text note distilled from their description." },
+};
+
+type SessionInput = {
+  trained_on?: string;
+  duration_min?: number;
+  rounds?: number;
+  feel?: number;
+  gym?: string;
+  session_type?: string;
+  comp_result?: string;
+  attire?: string;
+  drilled?: string;
+  subs_hit?: string[];
+  subs_caught_in?: string[];
+  partners?: string[];
+  note?: string;
+};
+
+const SESSION_TYPES = ["training", "open_mat", "competition", "private"];
+
+// Validate one tool-supplied session into an insertable row, or explain why not.
+function buildSessionRow(
+  userId: string,
+  a: SessionInput,
+): { ok: true; row: Record<string, unknown> } | { ok: false; error: string } {
+  if (!a.trained_on || !DATE_RE.test(a.trained_on))
+    return { ok: false, error: "Invalid trained_on — use YYYY-MM-DD." };
+  const duration = Math.floor(Number(a.duration_min));
+  if (!Number.isFinite(duration) || duration < 1 || duration > 599)
+    return { ok: false, error: `${a.trained_on}: duration_min must be 1–599 minutes.` };
+  const rounds = Math.min(99, Math.max(0, Math.floor(Number(a.rounds) || 0)));
+  const feelRaw = a.feel == null ? 3 : Math.floor(Number(a.feel));
+  const feel = Number.isFinite(feelRaw) ? Math.min(5, Math.max(1, feelRaw)) : 3;
+  const clean = (arr?: string[]) =>
+    (Array.isArray(arr) ? arr : [])
+      .map((s) => String(s).trim())
+      .filter(Boolean)
+      .slice(0, 20);
+  const session_type = SESSION_TYPES.includes(a.session_type ?? "") ? a.session_type : "training";
+  return {
+    ok: true,
+    row: {
+      user_id: userId,
+      trained_on: a.trained_on,
+      duration_min: duration,
+      rounds,
+      feel,
+      gym: a.gym?.trim() || null,
+      session_type,
+      comp_result: session_type === "competition" ? a.comp_result?.trim().slice(0, 120) || null : null,
+      attire: a.attire === "gi" || a.attire === "nogi" ? a.attire : null,
+      drilled: a.drilled?.trim() || null,
+      note: a.note?.trim() || null,
+      subs_hit: clean(a.subs_hit),
+      subs_caught_in: clean(a.subs_caught_in),
+      partners: clean(a.partners),
+    },
+  };
+}
+
 export const COACH_TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "query_sessions",
@@ -98,57 +183,23 @@ export const COACH_TOOL_DEFINITIONS: Anthropic.Tool[] = [
   {
     name: "log_session",
     description:
-      "Save a NEW training session to the athlete's log. Call this ONLY after you've shown the athlete the exact structured session you're about to save and they explicitly confirmed it in their latest message. Never call it speculatively.",
+      "Save ONE training session to the athlete's log. Use after they've described a session and said to log it (or confirmed your summary). For several sessions at once, use log_sessions instead.",
+    input_schema: { type: "object", properties: SESSION_INPUT_PROPS, required: ["trained_on", "duration_min"] },
+  },
+  {
+    name: "log_sessions",
+    description:
+      "Save SEVERAL training sessions in one call (up to 50) — backfilling past weeks, pasting a list, etc. One confirmation covers the whole batch; never ask per session. Each item uses the same fields as log_session.",
     input_schema: {
       type: "object",
       properties: {
-        trained_on: {
-          type: "string",
-          description: "Session date, YYYY-MM-DD ('today' resolves via the date in context).",
-        },
-        duration_min: {
-          type: "number",
-          description: "Mat time in minutes (1–599).",
-        },
-        rounds: {
-          type: "number",
-          description: "Rounds rolled (0–99). Default 0 if unknown.",
-        },
-        feel: {
-          type: "number",
-          description: "How it felt, 1–5. Ask the athlete if they didn't say.",
-        },
-        gym: { type: "string", description: "Gym name, if mentioned." },
-        attire: {
-          type: "string",
-          enum: ["gi", "nogi"],
-          description: "Gi or no-gi, if the athlete said (don't guess).",
-        },
-        drilled: {
-          type: "string",
-          description: "What they drilled, if mentioned.",
-        },
-        subs_hit: {
+        sessions: {
           type: "array",
-          items: { type: "string" },
-          description: "Submissions they finished.",
-        },
-        subs_caught_in: {
-          type: "array",
-          items: { type: "string" },
-          description: "Submissions they got caught in.",
-        },
-        partners: {
-          type: "array",
-          items: { type: "string" },
-          description: "Training partners mentioned by name.",
-        },
-        note: {
-          type: "string",
-          description: "Free-text note distilled from their description.",
+          maxItems: 50,
+          items: { type: "object", properties: SESSION_INPUT_PROPS, required: ["trained_on", "duration_min"] },
         },
       },
-      required: ["trained_on", "duration_min", "feel"],
+      required: ["sessions"],
     },
   },
 ];
@@ -249,59 +300,32 @@ export async function runCoachTool(
       ].join("\n");
     }
 
-    if (name === "log_session") {
-      const a = (input ?? {}) as {
-        trained_on?: string;
-        duration_min?: number;
-        rounds?: number;
-        feel?: number;
-        gym?: string;
-        attire?: string;
-        drilled?: string;
-        subs_hit?: string[];
-        subs_caught_in?: string[];
-        partners?: string[];
-        note?: string;
-      };
-      if (!a.trained_on || !DATE_RE.test(a.trained_on))
-        return "Invalid trained_on — use YYYY-MM-DD.";
-      const duration = Math.floor(Number(a.duration_min));
-      if (!Number.isFinite(duration) || duration < 1 || duration > 599)
-        return "Invalid duration_min — must be 1–599 minutes.";
-      const rounds = Math.min(99, Math.max(0, Math.floor(Number(a.rounds) || 0)));
-      const feel = Math.floor(Number(a.feel));
-      if (!Number.isFinite(feel) || feel < 1 || feel > 5)
-        return "Invalid feel — must be 1–5.";
-      const clean = (arr?: string[]) =>
-        (Array.isArray(arr) ? arr : [])
-          .map((s) => String(s).trim())
-          .filter(Boolean)
-          .slice(0, 20);
-
+    if (name === "log_session" || name === "log_sessions") {
+      const inputs: SessionInput[] =
+        name === "log_sessions"
+          ? (Array.isArray((input as { sessions?: unknown })?.sessions)
+              ? ((input as { sessions: SessionInput[] }).sessions ?? [])
+              : [])
+          : [(input ?? {}) as SessionInput];
+      if (inputs.length === 0) return "No sessions given.";
+      if (inputs.length > 50) return "Too many sessions in one call — max 50.";
+      const rows: Record<string, unknown>[] = [];
+      for (const a of inputs) {
+        const built = buildSessionRow(userId, a);
+        if (!built.ok) return `Could not save: ${built.error} Nothing was saved.`;
+        rows.push(built.row);
+      }
       const { data, error } = await supabase
         .from("sessions")
-        .insert({
-          user_id: userId,
-          trained_on: a.trained_on,
-          duration_min: duration,
-          rounds,
-          feel,
-          gym: a.gym?.trim() || null,
-          attire: a.attire === "gi" || a.attire === "nogi" ? a.attire : null,
-          drilled: a.drilled?.trim() || null,
-          note: a.note?.trim() || null,
-          subs_hit: clean(a.subs_hit),
-          subs_caught_in: clean(a.subs_caught_in),
-          partners: clean(a.partners),
-        })
-        .select(SESSION_COLS)
-        .single();
-      if (error) return `Could not save the session: ${error.message}`;
+        .insert(rows)
+        .select(SESSION_COLS);
+      if (error) return `Could not save the session(s): ${error.message}`;
 
       revalidatePath("/dashboard");
       revalidatePath("/feed");
       revalidatePath(`/u/${userId}`);
-      return `Session saved successfully:\n${formatSession(data as SessionRow)}`;
+      const saved = (data ?? []) as SessionRow[];
+      return `Saved ${saved.length} session${saved.length === 1 ? "" : "s"}:\n${saved.map(formatSession).join("\n")}`;
     }
 
     return `Unknown tool: ${name}`;

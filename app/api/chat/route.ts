@@ -69,10 +69,13 @@ Retrieval tools — pull their history on demand:
 - Tool calls are fast and free; make several when useful (e.g. compare this month vs last by calling get_submission_stats twice). Never claim you can't see older history — query it.
 
 Logging sessions by chat:
-- The athlete can log a session by describing it ("log today: 45 min at Clockwork, 5 rounds, hit two armbars, got caught in a triangle, felt like a 4").
-- Parse their description into the structured fields, then SHOW them exactly what you'll save (date, minutes, rounds, feel, gym, subs hit / caught in, partners, note) and ask them to confirm. If feel or duration is missing, ask for it.
-- Call log_session ONLY after they explicitly confirm in their latest message ("yes", "log it", "looks good"). One session per confirmation; after saving, confirm briefly and mention it's on their dashboard.
-- Never call log_session for hypotheticals, edits to existing sessions, or unconfirmed drafts.
+- The athlete can log sessions by describing them ("log today: 45 min at Clockwork, 5 rounds, hit two armbars, got caught in a triangle, felt like a 4"). Backfilling past dates and logging many sessions at once are both normal — people catch up on weeks at a time.
+- It is THEIR log. Never question whether sessions are real, never lecture about data integrity, never refuse to log something because it's in the past, looks like a list, or seems too tidy. If they ask you to log it, log it.
+- Parse each description into the structured fields. Missing feel defaults to 3; missing rounds to 0. Only ask a question if duration or date is genuinely absent.
+- For ONE session: show a compact one-line summary and ask "log it?" — unless their message already says to log it (or they've already said yes to everything), in which case call log_session straight away.
+- For SEVERAL sessions: do not ask per session and do not ask again if they've already confirmed. Call log_sessions once with the whole batch, then reply with a short summary (count, date range, anything notable). A single "yes", "log them", or "yes to all" covers the entire batch.
+- Never call the log tools for hypotheticals or edits to existing sessions (point them to the entry on their dashboard to edit).
+- Saying "Logged" does not save anything. A session exists ONLY when log_session / log_sessions returns "Saved". Never write "Logged", "Saved", or "it's on your dashboard" unless a tool result in this same reply says so. If you haven't called the tool yet, call it now instead of narrating.
 
 Safety — overrides everything else:
 - If the athlete expresses any thought of suicide, self-harm, or wanting to die — even jokingly or indirectly — do NOT coach past it. Respond with empathy, encourage them to reach out for real support, and share these resources: call or text 988 (Suicide & Crisis Lifeline, US, 24/7) or text HOME to 741741 (Crisis Text Line). Never provide information that could facilitate self-harm.
@@ -232,6 +235,11 @@ export async function POST(request: Request) {
       let answer = "";
       // This request's working conversation; grows with each tool round-trip.
       const convo: Anthropic.MessageParam[] = [...history];
+      // Guard against the model narrating "Logged." without calling the
+      // tool (Haiku does this on multi-session confirmations). If a reply
+      // claims a save and no log tool ran, send it back once to actually do it.
+      let savedViaTool = false;
+      let nudged = false;
       try {
         for (let turn = 0; turn <= MAX_TOOL_TURNS; turn++) {
           const stream = anthropic.messages.stream({
@@ -258,6 +266,7 @@ export async function POST(request: Request) {
           currentStream = stream;
 
           let emittedThisTurn = false;
+          let textThisTurn = "";
           for await (const event of stream) {
             if (
               event.type === "content_block_delta" &&
@@ -269,26 +278,50 @@ export async function POST(request: Request) {
                 controller.enqueue(encoder.encode("\n\n"));
               }
               emittedThisTurn = true;
+              textThisTurn += event.delta.text;
               answer += event.delta.text;
               controller.enqueue(encoder.encode(event.delta.text));
             }
           }
 
           const final = await stream.finalMessage();
-          if (final.stop_reason !== "tool_use") break;
+          if (final.stop_reason !== "tool_use") {
+            const claimsSave = /(^|\n)\s*(\*\*)?(logged|saved|all logged|all saved)(\*\*)?[.!:]/i.test(textThisTurn) ||
+              /\b(is|are|it's|they're) (now )?(saved|logged|on your dashboard)\b/i.test(textThisTurn);
+            if (claimsSave && !savedViaTool && !nudged && turn < MAX_TOOL_TURNS) {
+              nudged = true;
+              convo.push({
+                role: "assistant",
+                content: final.content as Anthropic.ContentBlockParam[],
+              });
+              convo.push({
+                role: "user",
+                content:
+                  "[system check] You said the session(s) were logged, but you did not call log_session or log_sessions, so nothing was saved. Call log_sessions now with every session you claimed to log (include the ones from earlier in this conversation that were confirmed but never saved — check with query_sessions if unsure), then reply with a one-line confirmation of what the tool actually saved.",
+              });
+              continue;
+            }
+            break;
+          }
 
           const results: Anthropic.ToolResultBlockParam[] = [];
           for (const block of final.content) {
             if (block.type !== "tool_use") continue;
+            const result = await runCoachTool(
+              supabase,
+              user.id,
+              block.name,
+              block.input,
+            );
+            if (
+              (block.name === "log_session" || block.name === "log_sessions") &&
+              result.startsWith("Saved")
+            )
+              savedViaTool = true;
             results.push({
               type: "tool_result",
               tool_use_id: block.id,
-              content: await runCoachTool(
-                supabase,
-                user.id,
-                block.name,
-                block.input,
-              ),
+              content: result,
             });
           }
           // The full assistant content (thinking blocks included — required
