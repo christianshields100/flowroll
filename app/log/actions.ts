@@ -196,4 +196,5 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
   revalidatePath("/dashboard");
   revalidatePath("/feed");
+  revalidatePath(`/u/${user.id}`);
 }

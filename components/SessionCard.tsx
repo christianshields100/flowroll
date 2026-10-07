@@ -44,10 +44,13 @@ export function SessionCard({
   session,
   author,
   footer,
+  actions,
 }: {
   session: SessionRow;
   author?: { display_name: string; belt: Belt; stripes: number } | null;
   footer?: React.ReactNode;
+  // Owner-only controls (edit/delete), rendered in the header row.
+  actions?: React.ReactNode;
 }) {
   const date = parseDateOnly(session.trained_on).toLocaleDateString(undefined, {
     weekday: "short",
@@ -70,9 +73,12 @@ export function SessionCard({
             {session.attire ? ` · ${session.attire === "gi" ? "Gi" : "No-gi"}` : ""}
           </span>
         </div>
-        <span className="text-[13px] num text-ink-dim whitespace-nowrap">
-          {session.duration_min} min · {session.rounds}{" "}
-          {session.rounds === 1 ? "round" : "rounds"}
+        <span className="flex items-baseline gap-3 whitespace-nowrap">
+          <span className="text-[13px] num text-ink-dim">
+            {session.duration_min} min · {session.rounds}{" "}
+            {session.rounds === 1 ? "round" : "rounds"}
+          </span>
+          {actions}
         </span>
       </div>
 

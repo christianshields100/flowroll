@@ -6,6 +6,7 @@ import { CountUp } from "@/components/CountUp";
 import { Avatar } from "@/components/Avatar";
 import { BeltChip, SessionCard, type Belt } from "@/components/SessionCard";
 import { SessionSocial } from "@/components/SessionSocial";
+import { OwnerControls } from "@/components/OwnerControls";
 import { sessionTotals, type SessionRow } from "@/lib/stats";
 import { fetchSessionSocial } from "@/lib/social";
 import { follow, unfollow } from "@/app/feed/actions";
@@ -242,6 +243,7 @@ export default async function ProfilePage({
                   <SessionCard
                     key={s.id}
                     session={s}
+                    actions={isMe ? <OwnerControls sessionId={s.id} /> : undefined}
                     footer={
                       <SessionSocial
                         sessionId={s.id}
