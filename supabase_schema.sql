@@ -1652,3 +1652,94 @@ returns jsonb language sql security definer set search_path = public stable as $
 $$;
 grant execute on function public.demo_snapshot() to anon, authenticated;
 
+
+
+-- ============================================================
+-- v18: Demo feed — a second partner, partners' sessions, people lists
+-- ============================================================
+insert into auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at,confirmation_token,recovery_token,email_change_token_new,email_change,is_sso_user)
+values ('00000000-0000-0000-0000-000000000000','00000000-0000-4000-a000-000000000003','authenticated','authenticated','demo-sam@flowroll.xyz',crypt(gen_random_uuid()::text,gen_salt('bf')),now(),'{"provider":"email","providers":["email"]}','{}','2026-07-20 15:00:00+00',now(),'','','','',false)
+on conflict (id) do nothing;
+select set_config('flowroll.skip_belt_trigger','1',true);
+update public.profiles set display_name='samokafor', first_name='Sam', last_name='Okafor', belt='white', stripes=3, onboarded=true, is_private=false, home_gym_name='Ironwood BJJ', home_gym_place_id='demo-ironwood' where id='00000000-0000-4000-a000-000000000003';
+insert into public.follows (follower_id,followee_id,status) values ('00000000-0000-4000-a000-000000000001','00000000-0000-4000-a000-000000000003','accepted'),('00000000-0000-4000-a000-000000000003','00000000-0000-4000-a000-000000000001','accepted'),('00000000-0000-4000-a000-000000000003','00000000-0000-4000-a000-000000000002','accepted') on conflict do nothing;
+
+insert into public.sessions (user_id,trained_on,duration_min,rounds,feel,gym,drilled,subs_hit,subs_caught_in,partners,note,session_type,attire)
+select v.* from (values
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-03'::date,90,5,4,'Ironwood BJJ','Front headlock series',array['bow and arrow']::text[],'{}'::text[],array['Sam']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-08-03'::date,60,5,2,'Ironwood BJJ','Shrimping and hip escapes','{}'::text[],array['armbar','RNC','armbar']::text[],array['Jordan']::text[],'First time hitting the americana live.','training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-05'::date,75,5,3,'Ironwood BJJ','Front headlock series',array['armbar','triangle','armbar']::text[],'{}'::text[],array['Nina','Theo']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-08-05'::date,60,4,3,'Ironwood BJJ','Scissor sweep','{}'::text[],array['kimura','triangle']::text[],array['Jordan']::text[],'First time hitting the americana live.','training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-07'::date,75,8,4,'Ironwood BJJ',null,array['bow and arrow','armbar','bow and arrow']::text[],'{}'::text[],array['Sam','Maya']::text[],null,'open_mat','nogi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-10'::date,120,4,5,'Ironwood BJJ','Open mat — rounds with the blue belts',array['triangle','heel hook']::text[],'{}'::text[],array['Theo']::text[],'Light day, coached the beginners class first.','training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-08-10'::date,60,4,3,'Ironwood BJJ','Scissor sweep',array['RNC']::text[],array['RNC','triangle']::text[],array['Jordan']::text[],'First time hitting the americana live.','training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-08-12'::date,60,4,3,'Ironwood BJJ','Mount escapes','{}'::text[],array['guillotine','triangle']::text[],array['Jordan','Maya']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-14'::date,75,7,4,'Ironwood BJJ',null,array['triangle','RNC','RNC']::text[],'{}'::text[],array['Nina','Theo']::text[],'Maya is getting dangerous from closed guard.','open_mat','nogi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-17'::date,120,5,4,'Ironwood BJJ','Front headlock series',array['heel hook','RNC']::text[],'{}'::text[],array['Theo']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-19'::date,120,6,2,'Ironwood BJJ','Front headlock series',array['RNC']::text[],array['armbar']::text[],array['Sam']::text[],'Comp prep — six hard rounds.','training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-08-19'::date,60,4,3,'Ironwood BJJ','Closed guard basics','{}'::text[],array['kimura','triangle']::text[],array['Nina']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-21'::date,90,7,4,'Ironwood BJJ',null,array['triangle','armbar']::text[],'{}'::text[],array['Theo']::text[],null,'open_mat','nogi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-26'::date,90,6,4,'Ironwood BJJ','Open mat — rounds with the blue belts',array['bow and arrow','triangle']::text[],array['armbar']::text[],array['Nina']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-08-26'::date,60,6,2,'Ironwood BJJ','Side control escapes','{}'::text[],array['kimura','triangle','kimura']::text[],array['Maya']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-28'::date,120,6,4,'Ironwood BJJ',null,array['bow and arrow','bow and arrow']::text[],'{}'::text[],array['Theo']::text[],null,'open_mat','nogi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-08-31'::date,75,5,4,'Ironwood BJJ','Wrestling up from butterfly',array['bow and arrow']::text[],'{}'::text[],array['Maya','Nina']::text[],'Light day, coached the beginners class first.','training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-08-31'::date,60,5,3,'Ironwood BJJ','Mount escapes','{}'::text[],array['RNC','guillotine']::text[],array['Jordan']::text[],'Got tapped a lot but learned something.','training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-02'::date,90,4,4,'Ironwood BJJ','Back attacks — bow and arrow and the short choke',array['RNC']::text[],'{}'::text[],array['Nina','Sam']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-02'::date,60,5,3,'Ironwood BJJ','Shrimping and hip escapes',array['americana']::text[],array['guillotine']::text[],array['Jordan']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-04'::date,75,8,4,'Ironwood BJJ',null,array['bow and arrow','bow and arrow']::text[],'{}'::text[],array['Maya']::text[],'Light day, coached the beginners class first.','open_mat','nogi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-07'::date,90,4,4,'Ironwood BJJ','Back attacks — bow and arrow and the short choke',array['armbar']::text[],'{}'::text[],array['Nina']::text[],'Maya is getting dangerous from closed guard.','training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-07'::date,60,4,2,'Ironwood BJJ','Side control escapes',array['RNC']::text[],array['RNC','triangle','guillotine']::text[],array['Jordan']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-09'::date,75,6,2,'Ironwood BJJ','Scissor sweep',array['RNC']::text[],array['guillotine','RNC','guillotine']::text[],array['Nina']::text[],'Survived a full round with Jordan!','training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-11'::date,120,9,4,'Ironwood BJJ',null,array['RNC','RNC']::text[],'{}'::text[],array['Sam']::text[],'Maya is getting dangerous from closed guard.','open_mat','nogi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-14'::date,120,6,4,'Ironwood BJJ','Open mat — rounds with the blue belts',array['armbar','triangle','RNC']::text[],'{}'::text[],array['Theo','Sam']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-14'::date,60,5,3,'Ironwood BJJ','Scissor sweep',array['RNC']::text[],array['armbar','guillotine']::text[],array['Nina']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-16'::date,90,5,4,'Ironwood BJJ','Wrestling up from butterfly',array['armbar','triangle']::text[],'{}'::text[],array['Sam','Nina']::text[],'Light day, coached the beginners class first.','training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-16'::date,75,6,3,'Ironwood BJJ','Mount escapes',array['RNC']::text[],array['RNC','RNC']::text[],array['Maya']::text[],'Got tapped a lot but learned something.','training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-18'::date,75,8,3,'Ironwood BJJ',null,array['bow and arrow']::text[],array['armbar']::text[],array['Maya','Nina']::text[],'Comp prep — six hard rounds.','open_mat','nogi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-21'::date,75,4,2,'Ironwood BJJ','Scissor sweep',array['RNC']::text[],array['armbar','triangle']::text[],array['Jordan']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-23'::date,75,6,4,'Ironwood BJJ','Front headlock series',array['RNC','heel hook','armbar']::text[],'{}'::text[],array['Sam']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-23'::date,75,6,2,'Ironwood BJJ','Mount escapes','{}'::text[],array['kimura','triangle','RNC']::text[],array['Jordan','Nina']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-25'::date,120,7,4,'Ironwood BJJ',null,array['bow and arrow','bow and arrow','triangle']::text[],'{}'::text[],array['Maya']::text[],null,'open_mat','nogi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-28'::date,75,6,3,'Ironwood BJJ','Shrimping and hip escapes',array['americana']::text[],array['kimura','guillotine']::text[],array['Maya']::text[],'Got tapped a lot but learned something.','training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-09-30'::date,90,5,3,'Ironwood BJJ','Open mat — rounds with the blue belts',array['armbar']::text[],array['toe hold']::text[],array['Theo','Nina']::text[],null,'training','gi'),
+('00000000-0000-4000-a000-000000000003'::uuid,'2026-09-30'::date,60,5,3,'Ironwood BJJ','Shrimping and hip escapes',array['RNC']::text[],array['kimura','RNC']::text[],array['Nina']::text[],'First time hitting the americana live.','training','gi'),
+('00000000-0000-4000-a000-000000000002'::uuid,'2026-10-02'::date,75,6,4,'Ironwood BJJ',null,array['RNC','RNC']::text[],array['armbar']::text[],array['Sam','Nina']::text[],null,'open_mat','nogi')
+) as v(user_id,trained_on,duration_min,rounds,feel,gym,drilled,subs_hit,subs_caught_in,partners,note,session_type,attire)
+where not exists (select 1 from public.sessions where user_id in ('00000000-0000-4000-a000-000000000002','00000000-0000-4000-a000-000000000003'));
+
+-- Maya reacts to her partners' sessions; a couple of comments both ways.
+insert into public.session_reactions (session_id,user_id,emoji,created_at)
+select s.id,'00000000-0000-4000-a000-000000000001', case when extract(day from s.trained_on)::int % 2 = 0 then '🔥' else '💪' end, s.trained_on::timestamptz + interval '22 hours'
+from public.sessions s where s.user_id in ('00000000-0000-4000-a000-000000000002','00000000-0000-4000-a000-000000000003') and extract(day from s.trained_on)::int % 3 <> 0
+on conflict do nothing;
+insert into public.session_comments (session_id,user_id,body,created_at)
+select s.id,'00000000-0000-4000-a000-000000000001', c.body, s.trained_on::timestamptz + interval '23 hours'
+from (values ('00000000-0000-4000-a000-000000000003','Survived a full round with Jordan!','That round was the best I have seen you move. Keep the frames.'),
+             ('00000000-0000-4000-a000-000000000002','Maya is getting dangerous from closed guard.','Say it louder for the purple belts in the back.')) as c(uid,note,body)
+join public.sessions s on s.user_id=c.uid::uuid and s.note=c.note
+where not exists (select 1 from public.session_comments x where x.session_id=s.id and x.user_id='00000000-0000-4000-a000-000000000001');
+
+create or replace function public.demo_snapshot()
+returns jsonb language sql security definer set search_path = public stable as $$
+  with me as (select '00000000-0000-4000-a000-000000000001'::uuid id),
+  followees as (select followee_id id from public.follows where follower_id=(select id from me) and status='accepted'),
+  followers as (select follower_id id from public.follows where followee_id=(select id from me) and status='accepted'),
+  feed as (select s.* from public.sessions s where s.user_id in (select id from followees) order by s.trained_on desc, s.created_at desc limit 30),
+  visible as (select id from public.sessions where user_id=(select id from me) union select id from feed),
+  prof as (select p.id, p.display_name, p.first_name, p.last_name, p.belt, p.stripes, p.avatar_url, p.is_private from public.profiles p)
+  select jsonb_build_object(
+    'profile', (select to_jsonb(p) - 'date_of_birth' - 'visit_count' - 'last_seen_on' - 'feedback_dismissed_at' - 'notification_prefs' from public.profiles p where p.id=(select id from me)),
+    'sessions', (select coalesce(jsonb_agg(to_jsonb(s) order by s.trained_on desc, s.created_at desc),'[]'::jsonb) from public.sessions s where s.user_id=(select id from me)),
+    'belt_history', (select coalesce(jsonb_agg(to_jsonb(b)),'[]'::jsonb) from public.belt_history b where b.user_id=(select id from me)),
+    'feed', (select coalesce(jsonb_agg(to_jsonb(f) order by f.trained_on desc, f.created_at desc),'[]'::jsonb) from feed f),
+    'people', (select coalesce(jsonb_object_agg(p.id, to_jsonb(p)),'{}'::jsonb) from prof p where p.id in (select id from followees union select id from followers union select user_id from feed)),
+    'following_ids', (select coalesce(jsonb_agg(id),'[]'::jsonb) from followees),
+    'follower_ids', (select coalesce(jsonb_agg(id),'[]'::jsonb) from followers),
+    'reactions', (select coalesce(jsonb_agg(jsonb_build_object('session_id',r.session_id,'emoji',r.emoji,'count',r.n,'mine',r.mine)),'[]'::jsonb) from (select session_id, emoji, count(*) n, bool_or(user_id=(select id from me)) mine from public.session_reactions where session_id in (select id from visible) group by 1,2) r),
+    'comments', (select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'session_id',c.session_id,'body',c.body,'created_at',c.created_at,'author',jsonb_build_object('display_name',p.display_name,'first_name',p.first_name,'last_name',p.last_name,'belt',p.belt,'avatar_url',p.avatar_url)) order by c.created_at),'[]'::jsonb) from public.session_comments c join public.profiles p on p.id=c.user_id where c.session_id in (select id from visible)),
+    'followers', (select count(*) from followers),
+    'following', (select count(*) from followees)
+  );
+$$;
+grant execute on function public.demo_snapshot() to anon, authenticated;
+

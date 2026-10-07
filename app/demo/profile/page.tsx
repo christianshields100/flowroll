@@ -14,14 +14,12 @@ export const dynamic = "force-dynamic";
 export default async function DemoProfile() {
   const demo = await loadDemo();
   if (!demo) notFound();
-  const { id: _id, ...shellProfile } = demo.profile;
-  void _id;
   const target = demo.profile;
   const rows = demo.sessions.slice(0, 30);
   const totals = sessionTotals(demo.sessions);
 
   return (
-    <AppShell profile={shellProfile} active="profile" demo>
+    <AppShell profile={demo.profile} active="profile" demo>
       <div className="rise flex items-start justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-5">
           <Avatar url={target.avatar_url} name={displayName(target)} belt={target.belt} size="lg" />

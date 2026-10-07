@@ -10,8 +10,6 @@ export const dynamic = "force-dynamic";
 export default async function DemoLog() {
   const demo = await loadDemo();
   if (!demo) notFound();
-  const { id: _id, ...shellProfile } = demo.profile;
-  void _id;
   const past = demo.sessions;
   const subSuggestions = submissionSuggestions(
     past.flatMap((s) => [...(s.subs_hit ?? []), ...(s.subs_caught_in ?? [])]),
@@ -22,7 +20,7 @@ export default async function DemoLog() {
   const lastAttire = past.find((s) => s.attire)?.attire ?? null;
 
   return (
-    <AppShell profile={shellProfile} active="log" demo>
+    <AppShell profile={demo.profile} active="log" demo>
       <div className="max-w-[640px]">
         <div className="rise border-b border-ink pb-6">
           <p className="text-[11px] uppercase tracking-dojo text-ink-mute">

@@ -47,7 +47,7 @@ export async function AppShell({
     ? [
         ["/demo", "Dashboard", "dashboard"],
         ["/demo/log", "Log", "log"],
-        ["/demo/profile", "Profile", "profile"],
+        ["/demo/feed", "Feed", "feed"],
         ["/demo/coach", "Coach", "chat"],
       ]
     : [
@@ -118,9 +118,9 @@ export async function AppShell({
               <NotificationBell items={items} unread={unread} meId={profile.id} />
             )}
             {profile &&
-              (profile.id && !demo ? (
+              (profile.id || demo ? (
                 <Link
-                  href={`/u/${profile.id}`}
+                  href={demo ? "/demo/profile" : `/u/${profile.id}`}
                   className="hidden sm:inline text-[13px] text-ink-dim hover:text-ink transition-colors"
                   title="Your profile"
                 >

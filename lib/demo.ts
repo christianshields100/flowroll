@@ -24,10 +24,26 @@ export type DemoProfile = {
   is_private: boolean;
 };
 
+export type DemoPerson = {
+  id: string;
+  display_name: string;
+  first_name: string | null;
+  last_name: string | null;
+  belt: Belt;
+  stripes: number;
+  avatar_url: string | null;
+  is_private: boolean;
+};
+
 export type DemoData = {
   profile: DemoProfile;
   sessions: SessionRow[];
   belts: BeltHistoryRow[];
+  // Partners' sessions (newest first) and who's who, for /demo/feed.
+  feed: (SessionRow & { user_id: string })[];
+  people: Map<string, DemoPerson>;
+  followingIds: string[];
+  followerIds: string[];
   reactionsBySession: Map<string, ReactionView[]>;
   commentsBySession: Map<string, CommentView[]>;
   followers: number;
@@ -42,7 +58,11 @@ export async function loadDemo(): Promise<DemoData | null> {
     profile: DemoProfile;
     sessions: SessionRow[];
     belt_history: BeltHistoryRow[];
-    reactions: { session_id: string; emoji: string; count: number }[];
+    feed: (SessionRow & { user_id: string })[];
+    people: Record<string, DemoPerson>;
+    following_ids: string[];
+    follower_ids: string[];
+    reactions: { session_id: string; emoji: string; count: number; mine?: boolean }[];
     comments: {
       id: string;
       session_id: string;
@@ -56,14 +76,13 @@ export async function loadDemo(): Promise<DemoData | null> {
 
   const reactionsBySession = new Map<string, ReactionView[]>();
   const commentsBySession = new Map<string, CommentView[]>();
-  for (const s of snap.sessions) {
+  for (const s of [...snap.sessions, ...(snap.feed ?? [])]) {
     reactionsBySession.set(
       s.id,
-      REACTIONS.map((emoji) => ({
-        emoji,
-        count: snap.reactions.find((r) => r.session_id === s.id && r.emoji === emoji)?.count ?? 0,
-        mine: false,
-      })),
+      REACTIONS.map((emoji) => {
+        const r = snap.reactions.find((x) => x.session_id === s.id && x.emoji === emoji);
+        return { emoji, count: r?.count ?? 0, mine: r?.mine ?? false };
+      }),
     );
   }
   for (const c of snap.comments) {
@@ -84,6 +103,10 @@ export async function loadDemo(): Promise<DemoData | null> {
     profile: snap.profile,
     sessions: snap.sessions,
     belts: snap.belt_history,
+    feed: snap.feed ?? [],
+    people: new Map(Object.entries(snap.people ?? {})),
+    followingIds: snap.following_ids ?? [],
+    followerIds: snap.follower_ids ?? [],
     reactionsBySession,
     commentsBySession,
     followers: Number(snap.followers) || 0,

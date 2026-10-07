@@ -10,11 +10,9 @@ export const dynamic = "force-dynamic";
 export default async function DemoCoach() {
   const demo = await loadDemo();
   if (!demo) notFound();
-  const { id: _id, ...shellProfile } = demo.profile;
-  void _id;
 
   return (
-    <AppShell profile={shellProfile} active="chat" demo>
+    <AppShell profile={demo.profile} active="chat" demo>
       <div className="max-w-[680px] mx-auto">
         <div className="rise text-center border-b border-ink pb-6">
           <h1 className="text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">

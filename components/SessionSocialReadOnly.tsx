@@ -18,10 +18,10 @@ export function SessionSocialReadOnly({
           {shown.map((r) => (
             <span
               key={r.emoji}
-              className="flex items-center gap-1 border border-paper-line px-2 py-0.5 text-sm"
+              className={`flex items-center gap-1 border px-2 py-0.5 text-sm ${r.mine ? "border-accent" : "border-paper-line"}`}
             >
               <span aria-hidden>{r.emoji}</span>
-              <span className="font-mono text-[11px] num text-ink-mute">{r.count}</span>
+              <span className={`font-mono text-[11px] num ${r.mine ? "text-accent" : "text-ink-mute"}`}>{r.count}</span>
             </span>
           ))}
         </div>

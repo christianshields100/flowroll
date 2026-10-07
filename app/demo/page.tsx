@@ -9,10 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function DemoDashboard() {
   const demo = await loadDemo();
   if (!demo) notFound();
-  const { id: _id, ...profile } = demo.profile;
-  void _id;
   return (
-    <AppShell profile={profile} active="dashboard" demo>
+    <AppShell profile={demo.profile} active="dashboard" demo>
       <DashboardView
         profile={demo.profile}
         sessions={demo.sessions}
