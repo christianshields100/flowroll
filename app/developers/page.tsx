@@ -60,7 +60,8 @@ export default function DevelopersPage() {
             </ul>
             <p className="mt-3">
               Tools exposed: <Mono>get_profile</Mono>, <Mono>list_sessions</Mono>,{" "}
-              <Mono>get_stats</Mono>, <Mono>log_session</Mono>, <Mono>log_sessions</Mono>.
+              <Mono>get_stats</Mono>, <Mono>log_session</Mono>, <Mono>log_sessions</Mono>,{" "}
+              <Mono>update_session</Mono>, <Mono>delete_session</Mono>, <Mono>update_profile</Mono>.
               Disconnect any time in Settings → Connected apps.
             </p>
           </Section>

@@ -1966,3 +1966,72 @@ returns uuid language sql security definer set search_path = public as $$
   select public.oauth_authenticate(p_access_hash, 'read');
 $$;
 grant execute on function public.oauth_check(text) to anon, authenticated;
+
+-- ============================================================
+-- v20: MCP write tools — update/delete a session, edit the profile
+-- ============================================================
+create or replace function public.mcp_update_session(p_access_hash text, p_id uuid, p_patch jsonb)
+returns setof public.sessions language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  uid := public.oauth_authenticate(p_access_hash, 'write');
+  if not exists (select 1 from public.sessions where id = p_id and user_id = uid) then
+    raise exception 'not_found';
+  end if;
+  return query
+    update public.sessions s set
+      trained_on     = case when p_patch ? 'trained_on'     then (p_patch->>'trained_on')::date else s.trained_on end,
+      duration_min   = case when p_patch ? 'duration_min'   then (p_patch->>'duration_min')::int else s.duration_min end,
+      rounds         = case when p_patch ? 'rounds'         then (p_patch->>'rounds')::int else s.rounds end,
+      feel           = case when p_patch ? 'feel'           then (p_patch->>'feel')::int else s.feel end,
+      gym            = case when p_patch ? 'gym'            then nullif(btrim(p_patch->>'gym'), '') else s.gym end,
+      drilled        = case when p_patch ? 'drilled'        then nullif(btrim(p_patch->>'drilled'), '') else s.drilled end,
+      note           = case when p_patch ? 'note'           then nullif(btrim(p_patch->>'note'), '') else s.note end,
+      subs_hit       = case when p_patch ? 'subs_hit'       then coalesce(array(select jsonb_array_elements_text(p_patch->'subs_hit')), '{}') else s.subs_hit end,
+      subs_caught_in = case when p_patch ? 'subs_caught_in' then coalesce(array(select jsonb_array_elements_text(p_patch->'subs_caught_in')), '{}') else s.subs_caught_in end,
+      partners       = case when p_patch ? 'partners'       then coalesce(array(select jsonb_array_elements_text(p_patch->'partners')), '{}') else s.partners end,
+      session_type   = case when p_patch ? 'session_type'   then p_patch->>'session_type' else s.session_type end,
+      comp_result    = case when p_patch ? 'comp_result'    then nullif(btrim(p_patch->>'comp_result'), '') else s.comp_result end,
+      attire         = case when p_patch ? 'attire'         then nullif(p_patch->>'attire', '') else s.attire end
+    where s.id = p_id and s.user_id = uid
+    returning s.*;
+end $$;
+grant execute on function public.mcp_update_session(text, uuid, jsonb) to anon, authenticated;
+
+create or replace function public.mcp_delete_session(p_access_hash text, p_id uuid)
+returns boolean language plpgsql security definer set search_path = public as $$
+declare uid uuid; paths text[];
+begin
+  uid := public.oauth_authenticate(p_access_hash, 'write');
+  select media_urls into paths from public.sessions where id = p_id and user_id = uid;
+  if not found then raise exception 'not_found'; end if;
+  if paths is not null and array_length(paths, 1) > 0 then
+    delete from storage.objects where bucket_id = 'session-media' and name = any (paths);
+  end if;
+  delete from public.sessions where id = p_id and user_id = uid;
+  return true;
+end $$;
+grant execute on function public.mcp_delete_session(text, uuid) to anon, authenticated;
+
+-- Profile edits go through the same row update Settings uses, so belt changes
+-- still land in belt_history via track_belt_change. Date of birth stays private.
+create or replace function public.mcp_update_profile(p_access_hash text, p_patch jsonb)
+returns table (id uuid, display_name text, first_name text, last_name text, belt text, stripes smallint, home_gym_name text, is_private boolean)
+language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  uid := public.oauth_authenticate(p_access_hash, 'write');
+  if p_patch ? 'belt' and not (p_patch->>'belt' in ('white','blue','purple','brown','black')) then raise exception 'invalid_belt'; end if;
+  if p_patch ? 'stripes' and ((p_patch->>'stripes')::int < 0 or (p_patch->>'stripes')::int > 4) then raise exception 'invalid_stripes'; end if;
+  update public.profiles p set
+    first_name    = case when p_patch ? 'first_name'    then left(nullif(btrim(p_patch->>'first_name'), ''), 60) else p.first_name end,
+    last_name     = case when p_patch ? 'last_name'     then left(nullif(btrim(p_patch->>'last_name'), ''), 60) else p.last_name end,
+    belt          = case when p_patch ? 'belt'          then p_patch->>'belt' else p.belt end,
+    stripes       = case when p_patch ? 'stripes'       then (p_patch->>'stripes')::smallint else p.stripes end,
+    home_gym_name = case when p_patch ? 'home_gym_name' then left(nullif(btrim(p_patch->>'home_gym_name'), ''), 120) else p.home_gym_name end,
+    is_private    = case when p_patch ? 'is_private'    then (p_patch->>'is_private')::boolean else p.is_private end
+  where p.id = uid;
+  return query select p.id, p.display_name, p.first_name, p.last_name, p.belt, p.stripes, p.home_gym_name, p.is_private
+    from public.profiles p where p.id = uid;
+end $$;
+grant execute on function public.mcp_update_profile(text, jsonb) to anon, authenticated;

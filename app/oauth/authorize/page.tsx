@@ -77,12 +77,12 @@ export default async function AuthorizePage({
                 {wantsWrite && (
                   <li className="py-3 flex gap-3">
                     <span className="text-accent">✓</span>
-                    <span>Log new sessions on your behalf</span>
+                    <span>Log, edit, and delete sessions, and update your profile (name, belt, home gym, privacy)</span>
                   </li>
                 )}
                 <li className="py-3 flex gap-3 text-ink-mute">
                   <span>✕</span>
-                  <span>Cannot see other athletes&apos; data, change your profile, or delete anything</span>
+                  <span>Cannot see other athletes&apos; data, your email, or your date of birth, and cannot delete your account</span>
                 </li>
               </ul>
               <form action={decideAuthorization} className="mt-8 flex items-center gap-3">
