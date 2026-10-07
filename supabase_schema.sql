@@ -1828,7 +1828,7 @@ grant execute on function public.oauth_client_info(uuid) to anon, authenticated;
 -- Called by the consent page's server action as the signed-in athlete.
 create or replace function public.oauth_issue_code(
   p_client_id uuid, p_redirect_uri text, p_code_challenge text, p_scope text
-) returns text language plpgsql security definer set search_path = public as $$
+) returns text language plpgsql security definer set search_path = public, extensions as $
 declare uid uuid := auth.uid(); c public.oauth_clients%rowtype; code text;
 begin
   if uid is null then raise exception 'not_signed_in'; end if;
@@ -1852,7 +1852,7 @@ grant execute on function public.oauth_issue_code(uuid, text, text, text) to aut
 -- base64url(sha256(code_verifier)) computed by the route handler.
 create or replace function public.oauth_exchange_code(
   p_code_hash text, p_client_id uuid, p_redirect_uri text, p_verifier_challenge text
-) returns jsonb language plpgsql security definer set search_path = public as $$
+) returns jsonb language plpgsql security definer set search_path = public, extensions as $
 declare r public.oauth_codes%rowtype; c public.oauth_clients%rowtype;
         access text; refresh text; tid uuid;
 begin
@@ -1878,7 +1878,7 @@ grant execute on function public.oauth_exchange_code(text, uuid, text, text) to 
 
 -- Token endpoint: refresh_token grant (new access token; refresh token kept).
 create or replace function public.oauth_refresh(p_refresh_hash text, p_client_id uuid)
-returns jsonb language plpgsql security definer set search_path = public as $$
+returns jsonb language plpgsql security definer set search_path = public, extensions as $
 declare t public.oauth_tokens%rowtype; access text;
 begin
   select * into t from public.oauth_tokens where refresh_hash = p_refresh_hash;
