@@ -49,14 +49,14 @@ export async function AppShell({
         ["/demo/log", "Log", "log"],
         ["/demo/feed", "Feed", "feed"],
         ["/demo/coach", "Coach", "chat"],
-        ["/connect", "Connect", "connect"],
+        ["/connect", "Connect to AI tools", "connect"],
       ]
     : [
         ["/dashboard", "Dashboard", "dashboard"],
         ["/log", "Log", "log"],
         ["/feed", "Feed", "feed"],
         ["/chat", "Coach", "chat"],
-        ["/connect", "Connect", "connect"],
+        ["/connect", "Connect to AI tools", "connect"],
       ];
   // Recent notifications for the bell — one small query per page.
   let items: NotificationRow[] = [];
@@ -110,7 +110,14 @@ export async function AppShell({
           <nav className="flex items-center gap-4 sm:gap-6 text-[13px]">
             {nav.map(([href, label, key]) => (
               <NavLink key={href} href={href} active={active === key}>
-                {label}
+                {key === "connect" ? (
+                  <>
+                    <span className="sm:hidden">AI tools</span>
+                    <span className="hidden sm:inline">{label}</span>
+                  </>
+                ) : (
+                  label
+                )}
               </NavLink>
             ))}
           </nav>

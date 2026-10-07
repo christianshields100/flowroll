@@ -33,7 +33,7 @@ export default async function ConnectPage() {
   const body = (
     <article className="max-w-[720px]">
       <div className="rise border-b border-ink pb-6">
-        <p className="text-[11px] uppercase tracking-dojo text-ink-mute">Connect</p>
+        <p className="text-[11px] uppercase tracking-dojo text-ink-mute">Connect to AI tools</p>
         <h1 className="mt-2 text-[30px] sm:text-[34px] leading-[1.1] font-medium tracking-tightish">
           FlowRoll, inside your AI tool.
         </h1>
