@@ -7,6 +7,7 @@ import { GymPicker } from "@/components/GymPicker";
 import { displayName } from "@/lib/profile";
 import { AvatarUploader } from "@/app/u/[id]/AvatarUploader";
 import { ApiKeysCard } from "./ApiKeysCard";
+import { ConnectedAppsCard } from "./ConnectedAppsCard";
 import { FeedbackCard } from "@/components/FeedbackCard";
 import { DangerZone } from "./DangerZone";
 import { BeltHistoryList } from "./BeltHistoryList";
@@ -29,7 +30,7 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: apiKeys }, { data: beltRows }] =
+  const [{ data: profile }, { data: apiKeys }, { data: beltRows }, { data: connectedApps }] =
     await Promise.all([
       supabase
         .from("profiles")
@@ -47,6 +48,13 @@ export default async function SettingsPage() {
         .from("belt_history")
         .select("id, kind, belt, stripes, promoted_on, created_at")
         .eq("user_id", user!.id),
+      supabase
+        .from("oauth_tokens")
+        .select("id, client_name, scope, created_at, last_used_at")
+        .eq("user_id", user!.id)
+        .is("revoked_at", null)
+        .gt("refresh_expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false }),
     ]);
 
   return (
@@ -150,6 +158,8 @@ export default async function SettingsPage() {
           journey: (profile?.notification_prefs as { journey?: boolean } | null)?.journey ?? true,
         }}
       />
+
+      <ConnectedAppsCard apps={(connectedApps ?? []) as { id: string; client_name: string; scope: string; created_at: string; last_used_at: string | null }[]} />
 
       <ApiKeysCard keys={apiKeys ?? []} />
 

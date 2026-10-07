@@ -1743,3 +1743,218 @@ returns jsonb language sql security definer set search_path = public stable as $
 $$;
 grant execute on function public.demo_snapshot() to anon, authenticated;
 
+
+-- ============================================================
+-- v19: OAuth 2.1 for the MCP connector ("Connect FlowRoll" from any AI tool)
+-- ============================================================
+-- Flow: the AI client registers itself (dynamic client registration), sends
+-- the athlete to /oauth/authorize, the athlete clicks Allow while signed in,
+-- the client swaps the code for tokens (PKCE S256), and every MCP call
+-- carries the access token. Only sha256 hashes of codes/tokens are stored.
+
+create table if not exists public.oauth_clients (
+  client_id     uuid primary key default gen_random_uuid(),
+  client_name   text not null check (char_length(client_name) between 1 and 120),
+  redirect_uris text[] not null,
+  created_at    timestamptz not null default now()
+);
+
+create table if not exists public.oauth_codes (
+  code_hash      text primary key,
+  client_id      uuid not null references public.oauth_clients(client_id) on delete cascade,
+  user_id        uuid not null references auth.users(id) on delete cascade,
+  redirect_uri   text not null,
+  code_challenge text not null,
+  scope          text not null default 'read write',
+  expires_at     timestamptz not null,
+  used_at        timestamptz
+);
+
+create table if not exists public.oauth_tokens (
+  id                 uuid primary key default gen_random_uuid(),
+  user_id            uuid not null references auth.users(id) on delete cascade,
+  client_id          uuid not null references public.oauth_clients(client_id) on delete cascade,
+  client_name        text not null,
+  scope              text not null,
+  access_hash        text not null unique,
+  refresh_hash       text unique,
+  access_expires_at  timestamptz not null,
+  refresh_expires_at timestamptz not null,
+  created_at         timestamptz not null default now(),
+  last_used_at       timestamptz,
+  revoked_at         timestamptz
+);
+create index if not exists oauth_tokens_user_idx on public.oauth_tokens (user_id, created_at desc);
+
+alter table public.oauth_clients enable row level security;
+alter table public.oauth_codes   enable row level security;
+alter table public.oauth_tokens  enable row level security;
+
+-- Athletes can see and disconnect their own connections; everything else
+-- goes through the definer functions below.
+drop policy if exists "oauth_tokens_select_own" on public.oauth_tokens;
+create policy "oauth_tokens_select_own" on public.oauth_tokens
+  for select using (auth.uid() = user_id);
+drop policy if exists "oauth_tokens_update_own" on public.oauth_tokens;
+create policy "oauth_tokens_update_own" on public.oauth_tokens
+  for update using (auth.uid() = user_id);
+
+create or replace function public.oauth_register_client(p_name text, p_redirect_uris text[])
+returns uuid language plpgsql security definer set search_path = public as $$
+declare cid uuid; u text;
+begin
+  if p_redirect_uris is null or array_length(p_redirect_uris, 1) is null or array_length(p_redirect_uris, 1) > 20 then
+    raise exception 'invalid_redirect_uri';
+  end if;
+  foreach u in array p_redirect_uris loop
+    if u !~ '^[a-zA-Z][a-zA-Z0-9+.-]*://' or char_length(u) > 2000 then
+      raise exception 'invalid_redirect_uri';
+    end if;
+  end loop;
+  insert into public.oauth_clients (client_name, redirect_uris)
+  values (left(coalesce(nullif(btrim(p_name), ''), 'AI assistant'), 120), p_redirect_uris)
+  returning client_id into cid;
+  return cid;
+end $$;
+grant execute on function public.oauth_register_client(text, text[]) to anon, authenticated;
+
+create or replace function public.oauth_client_info(p_client_id uuid)
+returns table (client_id uuid, client_name text, redirect_uris text[])
+language sql security definer set search_path = public stable as $$
+  select client_id, client_name, redirect_uris from public.oauth_clients where client_id = p_client_id;
+$$;
+grant execute on function public.oauth_client_info(uuid) to anon, authenticated;
+
+-- Called by the consent page's server action as the signed-in athlete.
+create or replace function public.oauth_issue_code(
+  p_client_id uuid, p_redirect_uri text, p_code_challenge text, p_scope text
+) returns text language plpgsql security definer set search_path = public as $$
+declare uid uuid := auth.uid(); c public.oauth_clients%rowtype; code text;
+begin
+  if uid is null then raise exception 'not_signed_in'; end if;
+  select * into c from public.oauth_clients where client_id = p_client_id;
+  if not found or not (p_redirect_uri = any (c.redirect_uris)) then
+    raise exception 'invalid_client';
+  end if;
+  if p_code_challenge is null or char_length(p_code_challenge) < 20 then
+    raise exception 'invalid_request';
+  end if;
+  delete from public.oauth_codes where expires_at < now() - interval '1 day';
+  code := 'frc_' || encode(gen_random_bytes(32), 'hex');
+  insert into public.oauth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, scope, expires_at)
+  values (encode(digest(code, 'sha256'), 'hex'), p_client_id, uid, p_redirect_uri, p_code_challenge,
+          coalesce(nullif(btrim(p_scope), ''), 'read write'), now() + interval '10 minutes');
+  return code;
+end $$;
+grant execute on function public.oauth_issue_code(uuid, text, text, text) to authenticated;
+
+-- Token endpoint: authorization_code grant. p_verifier_challenge is
+-- base64url(sha256(code_verifier)) computed by the route handler.
+create or replace function public.oauth_exchange_code(
+  p_code_hash text, p_client_id uuid, p_redirect_uri text, p_verifier_challenge text
+) returns jsonb language plpgsql security definer set search_path = public as $$
+declare r public.oauth_codes%rowtype; c public.oauth_clients%rowtype;
+        access text; refresh text; tid uuid;
+begin
+  select * into r from public.oauth_codes where code_hash = p_code_hash;
+  if not found or r.used_at is not null or r.expires_at < now() then
+    raise exception 'invalid_grant';
+  end if;
+  if r.client_id <> p_client_id or r.redirect_uri <> p_redirect_uri or r.code_challenge <> p_verifier_challenge then
+    raise exception 'invalid_grant';
+  end if;
+  update public.oauth_codes set used_at = now() where code_hash = p_code_hash;
+  select * into c from public.oauth_clients where client_id = p_client_id;
+  access  := 'fra_' || encode(gen_random_bytes(32), 'hex');
+  refresh := 'frr_' || encode(gen_random_bytes(32), 'hex');
+  insert into public.oauth_tokens (user_id, client_id, client_name, scope, access_hash, refresh_hash, access_expires_at, refresh_expires_at)
+  values (r.user_id, r.client_id, c.client_name, r.scope,
+          encode(digest(access, 'sha256'), 'hex'), encode(digest(refresh, 'sha256'), 'hex'),
+          now() + interval '24 hours', now() + interval '90 days')
+  returning id into tid;
+  return jsonb_build_object('access_token', access, 'refresh_token', refresh, 'expires_in', 86400, 'scope', r.scope);
+end $$;
+grant execute on function public.oauth_exchange_code(text, uuid, text, text) to anon, authenticated;
+
+-- Token endpoint: refresh_token grant (new access token; refresh token kept).
+create or replace function public.oauth_refresh(p_refresh_hash text, p_client_id uuid)
+returns jsonb language plpgsql security definer set search_path = public as $$
+declare t public.oauth_tokens%rowtype; access text;
+begin
+  select * into t from public.oauth_tokens where refresh_hash = p_refresh_hash;
+  if not found or t.revoked_at is not null or t.refresh_expires_at < now() or t.client_id <> p_client_id then
+    raise exception 'invalid_grant';
+  end if;
+  access := 'fra_' || encode(gen_random_bytes(32), 'hex');
+  update public.oauth_tokens
+     set access_hash = encode(digest(access, 'sha256'), 'hex'), access_expires_at = now() + interval '24 hours'
+   where id = t.id;
+  return jsonb_build_object('access_token', access, 'expires_in', 86400, 'scope', t.scope);
+end $$;
+grant execute on function public.oauth_refresh(text, uuid) to anon, authenticated;
+
+create or replace function public.oauth_authenticate(p_access_hash text, p_scope text default 'read')
+returns uuid language plpgsql security definer set search_path = public as $$
+declare t public.oauth_tokens%rowtype;
+begin
+  select * into t from public.oauth_tokens where access_hash = p_access_hash;
+  if not found or t.revoked_at is not null then raise exception 'invalid_token'; end if;
+  if t.access_expires_at < now() then raise exception 'expired_token'; end if;
+  if position(p_scope in t.scope) = 0 then raise exception 'insufficient_scope'; end if;
+  update public.oauth_tokens set last_used_at = now() where id = t.id;
+  return t.user_id;
+end $$;
+revoke execute on function public.oauth_authenticate(text, text) from public, anon, authenticated;
+
+-- MCP tool backends. Each one authenticates the token and scopes to its owner.
+create or replace function public.mcp_profile(p_access_hash text)
+returns table (id uuid, display_name text, first_name text, last_name text, belt text, stripes smallint, home_gym_name text, created_at timestamptz)
+language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  uid := public.oauth_authenticate(p_access_hash, 'read');
+  return query select p.id, p.display_name, p.first_name, p.last_name, p.belt, p.stripes, p.home_gym_name, p.created_at
+    from public.profiles p where p.id = uid;
+end $$;
+grant execute on function public.mcp_profile(text) to anon, authenticated;
+
+create or replace function public.mcp_sessions(
+  p_access_hash text, p_from date default null, p_to date default null, p_contains text default null, p_limit integer default 50
+) returns setof public.sessions language plpgsql security definer set search_path = public as $$
+declare uid uuid; needle text := nullif(btrim(coalesce(p_contains, '')), '');
+begin
+  uid := public.oauth_authenticate(p_access_hash, 'read');
+  return query
+    select s.* from public.sessions s
+     where s.user_id = uid
+       and (p_from is null or s.trained_on >= p_from)
+       and (p_to is null or s.trained_on <= p_to)
+       and (needle is null or (
+            coalesce(s.gym, '') ilike '%' || needle || '%' or coalesce(s.drilled, '') ilike '%' || needle || '%'
+         or coalesce(s.note, '') ilike '%' || needle || '%'
+         or exists (select 1 from unnest(s.subs_hit || s.subs_caught_in || s.partners) x where x ilike '%' || needle || '%')))
+     order by s.trained_on desc, s.created_at desc
+     limit greatest(1, least(coalesce(p_limit, 50), 500));
+end $$;
+grant execute on function public.mcp_sessions(text, date, date, text, integer) to anon, authenticated;
+
+create or replace function public.mcp_create_sessions(p_access_hash text, p_rows jsonb)
+returns setof public.sessions language plpgsql security definer set search_path = public as $$
+declare uid uuid;
+begin
+  uid := public.oauth_authenticate(p_access_hash, 'write');
+  if jsonb_typeof(p_rows) <> 'array' or jsonb_array_length(p_rows) = 0 or jsonb_array_length(p_rows) > 50 then
+    raise exception 'invalid_rows';
+  end if;
+  return query
+    insert into public.sessions (user_id, trained_on, duration_min, rounds, feel, gym, drilled, note, subs_hit, subs_caught_in, partners, session_type, comp_result, attire)
+    select uid, (r->>'trained_on')::date, (r->>'duration_min')::int, coalesce((r->>'rounds')::int, 0), coalesce((r->>'feel')::int, 3),
+           r->>'gym', r->>'drilled', r->>'note',
+           coalesce(array(select jsonb_array_elements_text(coalesce(r->'subs_hit', '[]'::jsonb))), '{}'),
+           coalesce(array(select jsonb_array_elements_text(coalesce(r->'subs_caught_in', '[]'::jsonb))), '{}'),
+           coalesce(array(select jsonb_array_elements_text(coalesce(r->'partners', '[]'::jsonb))), '{}'),
+           coalesce(r->>'session_type', 'training'), r->>'comp_result', r->>'attire'
+      from jsonb_array_elements(p_rows) r
+    returning *;
+end $$;
+grant execute on function public.mcp_create_sessions(text, jsonb) to anon, authenticated;

@@ -60,7 +60,7 @@ const SESSION_INPUT_PROPS: Record<string, unknown> = {
   note: { type: "string", description: "Free-text note distilled from their description." },
 };
 
-type SessionInput = {
+export type SessionInput = {
   trained_on?: string;
   duration_min?: number;
   rounds?: number;
@@ -79,7 +79,7 @@ type SessionInput = {
 const SESSION_TYPES = ["training", "open_mat", "competition", "private"];
 
 // Validate one tool-supplied session into an insertable row, or explain why not.
-function buildSessionRow(
+export function buildSessionRow(
   userId: string,
   a: SessionInput,
 ): { ok: true; row: Record<string, unknown> } | { ok: false; error: string } {

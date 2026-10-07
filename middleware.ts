@@ -3,7 +3,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/dashboard", "/log", "/feed", "/chat", "/u", "/settings"];
+const PROTECTED = ["/dashboard", "/log", "/feed", "/chat", "/u", "/settings", "/oauth"];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
   if ((isProtected || isWelcome) && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", path);
+    url.searchParams.set("next", path + request.nextUrl.search);
     return NextResponse.redirect(url);
   }
 

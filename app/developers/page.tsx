@@ -44,6 +44,27 @@ export default function DevelopersPage() {
         <div className="belt-rule mt-6 max-w-sm" />
 
         <div className="mt-10 space-y-10 text-ink-dim leading-relaxed">
+          <Section title="Connect an AI assistant" id="connect">
+            <p>
+              FlowRoll is an <b>MCP server</b>. Add it to Claude, ChatGPT, Cursor,
+              or any tool that supports MCP connectors, sign in with your FlowRoll
+              account, click <b>Allow</b>, and the assistant can read your log,
+              pull your stats, and log sessions for you. No keys to copy.
+            </p>
+            <Code>{`https://www.flowroll.xyz/api/mcp`}</Code>
+            <ul className="mt-3 list-disc pl-5 space-y-1">
+              <li><b>Claude.ai / Claude Desktop:</b> Settings → Connectors → Add custom connector → paste the URL.</li>
+              <li><b>Claude Code:</b> <Mono>claude mcp add --transport http flowroll https://www.flowroll.xyz/api/mcp</Mono>, then <Mono>/mcp</Mono> to sign in.</li>
+              <li><b>ChatGPT:</b> Settings → Connectors → Create (developer mode) → paste the URL.</li>
+              <li><b>Cursor and others:</b> add an MCP server with the URL above; the sign-in window opens on first use.</li>
+            </ul>
+            <p className="mt-3">
+              Tools exposed: <Mono>get_profile</Mono>, <Mono>list_sessions</Mono>,{" "}
+              <Mono>get_stats</Mono>, <Mono>log_session</Mono>, <Mono>log_sessions</Mono>.
+              Disconnect any time in Settings → Connected apps.
+            </p>
+          </Section>
+
           <Section title="Authentication">
             <p>
               Create an API key in{" "}
@@ -160,12 +181,14 @@ export default function DevelopersPage() {
 function Section({
   title,
   children,
+  id,
 }: {
   title: string;
   children: React.ReactNode;
+  id?: string;
 }) {
   return (
-    <section>
+    <section id={id}>
       <h2 className="font-display text-xl tracking-tightish text-ink">
         {title}
       </h2>
