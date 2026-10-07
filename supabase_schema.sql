@@ -1475,3 +1475,180 @@ begin
 end;
 $$;
 grant execute on function public.api_create_session(text, date, integer, integer, text, smallint, text[], text[], text[], text, text, text) to anon, authenticated;
+
+
+-- ============================================================
+-- v17: Demo athlete + public read-only snapshot for /demo
+-- ============================================================
+-- Two synthetic accounts (never sign in): the demo athlete and a training
+-- partner who reacts/comments. Fixed ids so the app can pin the demo.
+insert into auth.users (instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,raw_app_meta_data,raw_user_meta_data,created_at,updated_at,confirmation_token,recovery_token,email_change_token_new,email_change,is_sso_user)
+values
+ ('00000000-0000-0000-0000-000000000000','00000000-0000-4000-a000-000000000001','authenticated','authenticated','demo-maya@flowroll.xyz',crypt(gen_random_uuid()::text,gen_salt('bf')),now(),'{"provider":"email","providers":["email"]}','{}','2026-01-04 15:00:00+00',now(),'','','','',false),
+ ('00000000-0000-0000-0000-000000000000','00000000-0000-4000-a000-000000000002','authenticated','authenticated','demo-jordan@flowroll.xyz',crypt(gen_random_uuid()::text,gen_salt('bf')),now(),'{"provider":"email","providers":["email"]}','{}','2026-01-04 15:00:00+00',now(),'','','','',false)
+on conflict (id) do nothing;
+
+select set_config('flowroll.skip_belt_trigger','1',true);
+update public.profiles set display_name='mayareyes', first_name='Maya', last_name='Reyes', belt='blue', stripes=2, onboarded=true, is_private=false, home_gym_name='Ironwood BJJ', home_gym_place_id='demo-ironwood', created_at='2026-01-04 15:00:00+00' where id='00000000-0000-4000-a000-000000000001';
+update public.profiles set display_name='jordanlee', first_name='Jordan', last_name='Lee', belt='purple', stripes=1, onboarded=true, is_private=false, home_gym_name='Ironwood BJJ', home_gym_place_id='demo-ironwood' where id='00000000-0000-4000-a000-000000000002';
+
+delete from public.belt_history where user_id='00000000-0000-4000-a000-000000000001';
+insert into public.belt_history (user_id,kind,belt,stripes,promoted_on,created_at) values
+ ('00000000-0000-4000-a000-000000000001','start','white',4,'2026-01-05','2026-01-05 15:00:00+00'),
+ ('00000000-0000-4000-a000-000000000001','promotion','blue',0,'2026-04-11','2026-04-11 20:00:00+00'),
+ ('00000000-0000-4000-a000-000000000001','promotion','blue',1,'2026-07-18','2026-07-18 20:00:00+00'),
+ ('00000000-0000-4000-a000-000000000001','promotion','blue',2,'2026-09-26','2026-09-26 20:00:00+00');
+
+insert into public.follows (follower_id,followee_id,status) values ('00000000-0000-4000-a000-000000000002','00000000-0000-4000-a000-000000000001','accepted'),('00000000-0000-4000-a000-000000000001','00000000-0000-4000-a000-000000000002','accepted') on conflict do nothing;
+
+insert into public.sessions (user_id,trained_on,duration_min,rounds,feel,gym,drilled,subs_hit,subs_caught_in,partners,note,session_type,comp_result,attire)
+select '00000000-0000-4000-a000-000000000001', v.* from (values
+('2026-01-07'::date,75,5,3,'Ironwood BJJ','Mount escapes — bridge and roll, elbow-knee','{}'::text[],array['armbar','RNC']::text[],array['Theo']::text[],null,'training',null,'gi'),
+('2026-01-09'::date,90,5,3,'Ironwood BJJ','Scissor sweep and hip bump chain',array['RNC']::text[],array['kimura']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-01-12'::date,90,6,2,'Ironwood BJJ','Cross-collar choke from mount','{}'::text[],array['triangle','RNC']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-01-14'::date,75,4,4,'Ironwood BJJ','Shrimping, technical stand-up, basic frames',array['americana','americana']::text[],array['armbar','triangle']::text[],array['Sam','Jordan']::text[],'Breathing stayed calm the whole session.','training',null,'gi'),
+('2026-01-17'::date,90,9,2,'Ironwood BJJ','Scissor sweep and hip bump chain',array['armbar']::text[],array['kimura','triangle']::text[],array['Theo','Nina','Jordan']::text[],null,'open_mat',null,'nogi'),
+('2026-01-19'::date,90,6,4,'Ironwood BJJ','Scissor sweep and hip bump chain',array['americana']::text[],array['armbar','triangle']::text[],array['Jordan','Sam']::text[],'Gassed by round four.','training',null,'gi'),
+('2026-01-21'::date,75,6,3,'Ironwood BJJ','Side control escapes — frame and shrimp',array['americana']::text[],array['kimura','RNC']::text[],array['Theo','Alex']::text[],null,'training',null,'gi'),
+('2026-01-23'::date,75,4,3,'Ironwood BJJ','Americana from side control',array['americana']::text[],array['armbar']::text[],array['Alex','Nina']::text[],null,'training',null,'gi'),
+('2026-01-24'::date,90,7,2,'Ironwood BJJ',null,array['americana']::text[],array['RNC']::text[],array['Nina','Sam','Jordan']::text[],null,'open_mat',null,'nogi'),
+('2026-01-26'::date,90,5,3,'Ironwood BJJ','Mount escapes — bridge and roll, elbow-knee',array['armbar','americana']::text[],array['armbar','RNC']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-01-28'::date,75,5,3,'Ironwood BJJ','Side control escapes — frame and shrimp',array['americana']::text[],array['kimura']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-01-29'::date,60,2,4,'Ironwood BJJ','Private with Coach Dev — triangle details','{}'::text[],'{}'::text[],array['Coach Dev']::text[],null,'private',null,'gi'),
+('2026-01-30'::date,75,6,2,'Ironwood BJJ','Mount escapes — bridge and roll, elbow-knee','{}'::text[],array['triangle']::text[],array['Sam']::text[],null,'training',null,'gi'),
+('2026-02-02'::date,75,6,3,'Ironwood BJJ','Basic guard passing — knee slice',array['kimura']::text[],array['triangle','armbar']::text[],array['Sam']::text[],null,'training',null,'gi'),
+('2026-02-04'::date,75,5,3,'Ironwood BJJ','Cross-collar choke from mount','{}'::text[],array['RNC']::text[],array['Jordan','Nina']::text[],null,'training',null,'gi'),
+('2026-02-06'::date,75,5,3,'Ironwood BJJ','Scissor sweep and hip bump chain',array['americana']::text[],array['kimura','guillotine']::text[],array['Nina','Alex']::text[],null,'training',null,'gi'),
+('2026-02-07'::date,90,9,3,'Ironwood BJJ','Scissor sweep and hip bump chain',array['americana']::text[],array['triangle','armbar']::text[],array['Sam','Nina']::text[],null,'open_mat',null,'nogi'),
+('2026-02-09'::date,75,4,3,'Ironwood BJJ',null,'{}'::text[],array['triangle']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-02-11'::date,60,6,3,'Ironwood BJJ','Cross-collar choke from mount',array['americana']::text[],array['kimura','armbar']::text[],array['Alex']::text[],'Need to drill the knee line escape, not think about it.','training',null,'gi'),
+('2026-02-13'::date,60,4,3,'Ironwood BJJ',null,array['americana']::text[],array['armbar']::text[],array['Jordan','Sam']::text[],null,'training',null,'gi'),
+('2026-02-16'::date,90,4,4,'Ironwood BJJ','Scissor sweep and hip bump chain',array['americana']::text[],array['guillotine','armbar']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-02-18'::date,75,6,3,'Ironwood BJJ','Cross-collar choke from mount','{}'::text[],array['armbar','kimura']::text[],array['Nina','Sam']::text[],'Kept leaving my arm in when I pass.','training',null,'gi'),
+('2026-02-20'::date,75,4,3,'Ironwood BJJ','Mount escapes — bridge and roll, elbow-knee',array['armbar']::text[],array['armbar']::text[],array['Jordan','Alex']::text[],null,'training',null,'gi'),
+('2026-02-23'::date,75,6,2,'Ironwood BJJ','Side control escapes — frame and shrimp',array['armbar']::text[],array['armbar','kimura']::text[],array['Theo','Nina']::text[],null,'training',null,'gi'),
+('2026-02-25'::date,90,6,3,'Ironwood BJJ','Basic guard passing — knee slice',array['RNC']::text[],array['triangle','guillotine']::text[],array['Sam','Nina']::text[],'Gassed by round four.','training',null,'gi'),
+('2026-02-27'::date,60,4,3,'Ironwood BJJ','Shrimping, technical stand-up, basic frames',array['americana']::text[],array['triangle']::text[],array['Nina']::text[],null,'training',null,'gi'),
+('2026-03-02'::date,75,6,3,'Ironwood BJJ','Americana from side control','{}'::text[],array['armbar','triangle']::text[],array['Sam','Nina']::text[],null,'training',null,'gi'),
+('2026-03-04'::date,75,4,2,'Ironwood BJJ','Basic guard passing — knee slice','{}'::text[],array['kimura']::text[],array['Jordan','Alex']::text[],'Jordan is a problem from the back.','training',null,'gi'),
+('2026-03-06'::date,90,4,3,'Ironwood BJJ','Shrimping, technical stand-up, basic frames',array['armbar']::text[],array['kimura']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-03-07'::date,90,9,3,'Ironwood BJJ','Closed guard retention and hip escapes','{}'::text[],array['guillotine','armbar']::text[],array['Sam','Jordan']::text[],null,'open_mat',null,'nogi'),
+('2026-03-09'::date,90,4,3,'Ironwood BJJ','Shrimping, technical stand-up, basic frames',array['kimura']::text[],array['armbar']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-03-12'::date,60,2,3,'Ironwood BJJ','Private with Coach Dev — guard passing posture','{}'::text[],'{}'::text[],array['Coach Dev']::text[],'Finally hit it in live rounds.','private',null,'gi'),
+('2026-03-14'::date,180,3,5,'Grappling Industries NYC',null,array['americana','RNC','armbar']::text[],'{}'::text[],'{}'::text[],'Gold! Three matches, three finishes. Nerves were brutal before the first one.','competition','Gold — white adult, 3–0','gi'),
+('2026-03-16'::date,75,5,3,'Ironwood BJJ','Side control escapes — frame and shrimp','{}'::text[],array['kimura','armbar']::text[],array['Nina','Alex']::text[],null,'training',null,'gi'),
+('2026-03-18'::date,90,5,3,'Ironwood BJJ','Cross-collar choke from mount',array['RNC']::text[],array['guillotine']::text[],array['Nina','Jordan']::text[],null,'training',null,'gi'),
+('2026-03-20'::date,75,5,2,'Ironwood BJJ','Scissor sweep and hip bump chain',array['americana']::text[],array['triangle','armbar']::text[],array['Alex','Nina']::text[],null,'training',null,'gi'),
+('2026-03-23'::date,90,6,3,'Ironwood BJJ','Mount escapes — bridge and roll, elbow-knee',array['kimura']::text[],array['kimura']::text[],array['Nina','Jordan']::text[],null,'training',null,'gi'),
+('2026-03-25'::date,75,4,3,'Ironwood BJJ',null,array['americana']::text[],array['armbar','kimura']::text[],array['Theo']::text[],null,'training',null,'gi'),
+('2026-03-27'::date,75,5,3,'Ironwood BJJ','Americana from side control','{}'::text[],array['RNC','RNC']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-03-30'::date,60,6,3,'Ironwood BJJ','Basic guard passing — knee slice',array['americana']::text[],array['RNC','RNC']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-04-04'::date,90,8,3,'Ironwood BJJ',null,array['armbar']::text[],array['heel hook']::text[],array['Jordan','Nina','Sam','Alex']::text[],null,'open_mat',null,'nogi'),
+('2026-04-10'::date,60,5,3,'Ironwood BJJ','Triangle setups from closed guard',array['RNC']::text[],array['armbar','armbar']::text[],array['Sam','Jordan']::text[],null,'training',null,'gi'),
+('2026-04-13'::date,75,6,3,'Ironwood BJJ','Back control — seatbelt and the RNC finish',array['armbar']::text[],array['armbar','armbar']::text[],array['Alex','Theo']::text[],null,'training',null,'gi'),
+('2026-04-20'::date,75,6,3,'Ironwood BJJ','Back control — seatbelt and the RNC finish',array['triangle','triangle']::text[],array['kimura','armbar']::text[],array['Alex','Jordan']::text[],null,'training',null,'gi'),
+('2026-04-22'::date,60,5,3,'Ironwood BJJ',null,array['triangle']::text[],array['triangle']::text[],array['Nina','Jordan']::text[],null,'training',null,'gi'),
+('2026-04-23'::date,60,2,2,'Ironwood BJJ','Private with Coach Dev — guard passing posture','{}'::text[],'{}'::text[],array['Coach Dev']::text[],null,'private',null,'gi'),
+('2026-04-24'::date,75,5,3,'Ironwood BJJ',null,array['triangle']::text[],array['kimura']::text[],array['Theo','Alex']::text[],null,'training',null,'gi'),
+('2026-04-25'::date,90,8,3,'Ironwood BJJ',null,array['RNC']::text[],array['heel hook','RNC','heel hook']::text[],array['Theo','Nina']::text[],null,'open_mat',null,'nogi'),
+('2026-04-27'::date,90,4,3,'Ironwood BJJ','Guard retention vs the toreando',array['armbar']::text[],array['armbar']::text[],array['Theo','Nina']::text[],null,'training',null,'gi'),
+('2026-04-29'::date,60,6,3,'Ironwood BJJ','Half guard — knee shield and the old school sweep',array['kimura']::text[],array['kimura','armbar']::text[],array['Sam']::text[],null,'training',null,'gi'),
+('2026-05-01'::date,75,6,3,'Ironwood BJJ','Knee cut pass with the cross-face',array['triangle']::text[],array['kimura','kimura']::text[],array['Nina']::text[],'Hands too low — got snapped down twice.','training',null,'gi'),
+('2026-05-02'::date,120,6,3,'Ironwood BJJ',null,array['armbar']::text[],array['armbar']::text[],array['Jordan','Sam']::text[],null,'open_mat',null,'nogi'),
+('2026-05-04'::date,60,4,2,'Ironwood BJJ','Back control — seatbelt and the RNC finish','{}'::text[],'{}'::text[],array['Sam']::text[],null,'training',null,'gi'),
+('2026-05-08'::date,60,5,3,'Ironwood BJJ','Guard retention vs the toreando','{}'::text[],array['armbar']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-05-11'::date,75,4,3,'Ironwood BJJ','Kimura trap from half guard',array['armbar']::text[],array['kimura']::text[],array['Nina','Jordan']::text[],null,'training',null,'gi'),
+('2026-05-13'::date,90,4,2,'Ironwood BJJ','Kimura trap from half guard','{}'::text[],'{}'::text[],array['Theo']::text[],null,'training',null,'gi'),
+('2026-05-16'::date,90,8,3,'Ironwood BJJ','Guard retention vs the toreando',array['kimura','kimura']::text[],array['triangle']::text[],array['Jordan']::text[],null,'open_mat',null,'nogi'),
+('2026-05-18'::date,90,6,4,'Ironwood BJJ','Armbar from guard, hip angle details',array['armbar','RNC']::text[],array['heel hook']::text[],array['Theo']::text[],null,'training',null,'gi'),
+('2026-05-20'::date,75,5,4,'Ironwood BJJ','Kimura trap from half guard',array['RNC']::text[],array['RNC','RNC']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-05-22'::date,75,5,3,'Ironwood BJJ','Takedowns — single leg, snap down to front headlock',array['RNC']::text[],array['heel hook']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-05-23'::date,90,8,3,'Ironwood BJJ','Back control — seatbelt and the RNC finish',array['armbar']::text[],array['armbar','armbar']::text[],array['Nina','Sam','Jordan']::text[],null,'open_mat',null,'nogi'),
+('2026-05-25'::date,75,4,4,'Ironwood BJJ','Half guard — knee shield and the old school sweep',array['RNC']::text[],'{}'::text[],array['Sam','Jordan']::text[],null,'training',null,'gi'),
+('2026-05-27'::date,75,4,3,'Ironwood BJJ','Kimura trap from half guard','{}'::text[],array['triangle']::text[],array['Jordan']::text[],'Tired week, low energy.','training',null,'gi'),
+('2026-05-29'::date,75,6,4,'Ironwood BJJ','Armbar from guard, hip angle details',array['armbar','RNC']::text[],array['heel hook']::text[],array['Jordan','Alex']::text[],null,'training',null,'gi'),
+('2026-05-30'::date,90,9,3,'Ironwood BJJ','Back control — seatbelt and the RNC finish',array['triangle']::text[],array['RNC','triangle']::text[],array['Alex','Jordan']::text[],null,'open_mat',null,'nogi'),
+('2026-06-01'::date,75,5,2,'Ironwood BJJ','Half guard — knee shield and the old school sweep',array['RNC']::text[],array['RNC']::text[],array['Alex','Sam']::text[],null,'training',null,'gi'),
+('2026-06-03'::date,60,5,2,'Ironwood BJJ','Knee cut pass with the cross-face',array['triangle']::text[],array['RNC','kimura']::text[],array['Jordan','Theo']::text[],'Need to drill the knee line escape, not think about it.','training',null,'gi'),
+('2026-06-04'::date,60,2,3,'Ironwood BJJ','Private with Coach Dev — triangle details','{}'::text[],'{}'::text[],array['Coach Dev']::text[],null,'private',null,'gi'),
+('2026-06-05'::date,90,6,3,'Ironwood BJJ','Guard retention vs the toreando',array['triangle']::text[],array['armbar']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-06-06'::date,90,9,3,'Ironwood BJJ',null,array['armbar']::text[],array['heel hook','heel hook']::text[],array['Nina','Theo']::text[],null,'open_mat',null,'nogi'),
+('2026-06-08'::date,60,4,4,'Ironwood BJJ','Kimura trap from half guard',array['triangle','armbar']::text[],array['triangle']::text[],array['Theo']::text[],'Breathing stayed calm the whole session.','training',null,'gi'),
+('2026-06-12'::date,75,6,4,'Ironwood BJJ','Triangle setups from closed guard',array['triangle']::text[],array['heel hook','triangle']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-06-13'::date,120,6,3,'Ironwood BJJ','Takedowns — single leg, snap down to front headlock','{}'::text[],array['armbar','triangle']::text[],array['Theo','Alex']::text[],'Tired week, low energy.','open_mat',null,'nogi'),
+('2026-06-29'::date,75,6,2,'Ironwood BJJ','Armbar from guard, hip angle details',array['bow and arrow']::text[],array['armbar','kimura']::text[],array['Sam']::text[],null,'training',null,'gi'),
+('2026-07-01'::date,90,5,4,'Ironwood BJJ','Triangle finishing — the angle and the shoulder walk',array['armbar','triangle','RNC']::text[],array['armbar']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-07-06'::date,75,4,3,'Ironwood BJJ',null,array['triangle']::text[],array['heel hook']::text[],array['Sam']::text[],'Finally hit it in live rounds.','training',null,'gi'),
+('2026-07-08'::date,75,6,4,'Ironwood BJJ','Ashi garami entries (no-gi)',array['bow and arrow','triangle']::text[],array['heel hook']::text[],array['Sam','Jordan']::text[],null,'training',null,'gi'),
+('2026-07-10'::date,75,4,4,'Ironwood BJJ','Heel hook defense — clearing the knee line',array['triangle','RNC']::text[],array['guillotine']::text[],array['Jordan','Nina']::text[],null,'training',null,'gi'),
+('2026-07-13'::date,75,6,4,'Ironwood BJJ','Open mat — positional rounds from the back',array['RNC']::text[],array['armbar']::text[],array['Sam']::text[],null,'training',null,'gi'),
+('2026-07-15'::date,75,6,4,'Ironwood BJJ','Bow and arrow from the back','{}'::text[],'{}'::text[],array['Sam','Jordan']::text[],null,'training',null,'gi'),
+('2026-07-16'::date,60,2,3,'Ironwood BJJ','Private with Coach Dev — triangle details','{}'::text[],'{}'::text[],array['Coach Dev']::text[],null,'private',null,'gi'),
+('2026-07-17'::date,75,5,4,'Ironwood BJJ','Open mat — positional rounds from the back',array['armbar']::text[],'{}'::text[],array['Jordan']::text[],'Breathing stayed calm the whole session.','training',null,'nogi'),
+('2026-07-20'::date,75,5,4,'Ironwood BJJ','Front headlock to guillotine and anaconda',array['triangle','triangle']::text[],'{}'::text[],array['Jordan']::text[],'Passing felt effortless for once.','training',null,'gi'),
+('2026-07-22'::date,60,6,4,'Ironwood BJJ','Open mat — positional rounds from the back',array['bow and arrow','triangle']::text[],array['heel hook']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-07-24'::date,75,6,3,'Ironwood BJJ','Bow and arrow from the back',array['bow and arrow']::text[],array['armbar']::text[],array['Alex']::text[],null,'training',null,'gi'),
+('2026-07-31'::date,60,6,2,'Ironwood BJJ',null,'{}'::text[],array['heel hook']::text[],array['Jordan']::text[],'Gassed by round four.','training',null,'gi'),
+('2026-08-03'::date,75,6,4,'Ironwood BJJ',null,array['triangle','triangle']::text[],array['kimura']::text[],array['Sam']::text[],null,'training',null,'gi'),
+('2026-08-05'::date,75,6,4,'Ironwood BJJ','Open mat — positional rounds from the back',array['triangle']::text[],'{}'::text[],array['Alex','Sam']::text[],null,'training',null,'nogi'),
+('2026-08-07'::date,75,6,4,'Ironwood BJJ','Front headlock to guillotine and anaconda',array['triangle','triangle']::text[],'{}'::text[],array['Sam','Theo']::text[],'Best rounds in weeks.','training',null,'gi'),
+('2026-08-08'::date,120,9,3,'Ironwood BJJ','Heel hook defense — clearing the knee line',array['RNC']::text[],array['heel hook','heel hook']::text[],array['Sam','Theo','Alex','Nina']::text[],'Gassed by round four.','open_mat',null,'nogi'),
+('2026-08-10'::date,75,5,3,'Ironwood BJJ','Open mat — positional rounds from the back',array['triangle']::text[],array['heel hook']::text[],array['Nina','Jordan']::text[],null,'training',null,'gi'),
+('2026-08-15'::date,180,5,5,'Grappling Industries NYC',null,array['triangle','triangle','bow and arrow']::text[],array['armbar']::text[],'{}'::text[],'Bronze. Lost the semi to an armbar from top — same leak as always.','competition','Bronze — blue adult, 2–1','gi'),
+('2026-08-19'::date,75,4,4,'Ironwood BJJ',null,array['RNC','RNC']::text[],array['heel hook']::text[],array['Jordan','Sam']::text[],'Best rounds in weeks.','training',null,'gi'),
+('2026-08-27'::date,60,2,3,'Ironwood BJJ','Private with Coach Dev — guard passing posture','{}'::text[],'{}'::text[],array['Coach Dev']::text[],'Breathing stayed calm the whole session.','private',null,'gi'),
+('2026-08-28'::date,90,4,4,'Ironwood BJJ','Knee cut to back take',array['armbar','bow and arrow']::text[],'{}'::text[],array['Sam']::text[],'Best rounds in weeks.','training',null,'gi'),
+('2026-08-29'::date,120,9,4,'Ironwood BJJ',null,array['bow and arrow','triangle']::text[],'{}'::text[],array['Nina','Alex']::text[],'Felt sharp today.','open_mat',null,'nogi'),
+('2026-08-31'::date,60,5,4,'Ironwood BJJ',null,array['RNC','bow and arrow']::text[],array['kimura']::text[],array['Jordan','Nina']::text[],null,'training',null,'gi'),
+('2026-09-02'::date,60,4,4,'Ironwood BJJ','Knee cut to back take',array['armbar']::text[],'{}'::text[],array['Nina','Alex']::text[],'Best rounds in weeks.','training',null,'nogi'),
+('2026-09-04'::date,90,5,4,'Ironwood BJJ','Knee cut to back take',array['triangle','bow and arrow']::text[],array['heel hook']::text[],array['Sam']::text[],'Finally hit it in live rounds.','training',null,'gi'),
+('2026-09-07'::date,75,6,4,'Ironwood BJJ','Armbar defense from mount',array['triangle','armbar']::text[],array['kimura']::text[],array['Alex','Nina']::text[],null,'training',null,'gi'),
+('2026-09-09'::date,75,4,5,'Ironwood BJJ','Knee cut to back take',array['triangle']::text[],'{}'::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-09-12'::date,90,9,4,'Ironwood BJJ','Knee cut to back take',array['armbar','triangle']::text[],array['heel hook']::text[],array['Jordan','Theo','Sam']::text[],null,'open_mat',null,'nogi'),
+('2026-09-14'::date,60,5,3,'Ironwood BJJ','Ashi garami entries (no-gi)',array['RNC']::text[],'{}'::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-09-16'::date,90,5,3,'Ironwood BJJ','Ashi garami entries (no-gi)',array['bow and arrow','armbar']::text[],array['heel hook']::text[],array['Sam','Jordan']::text[],'Best rounds in weeks.','training',null,'gi'),
+('2026-09-18'::date,90,5,4,'Ironwood BJJ','Triangle finishing — the angle and the shoulder walk',array['bow and arrow','armbar']::text[],'{}'::text[],array['Nina']::text[],null,'training',null,'nogi'),
+('2026-09-19'::date,120,6,4,'Ironwood BJJ','Front headlock to guillotine and anaconda',array['triangle','armbar']::text[],array['heel hook']::text[],array['Jordan','Alex']::text[],null,'open_mat',null,'nogi'),
+('2026-09-21'::date,90,5,3,'Ironwood BJJ','Heel hook defense — clearing the knee line',array['bow and arrow']::text[],array['armbar','heel hook']::text[],array['Theo']::text[],null,'training',null,'gi'),
+('2026-09-23'::date,90,5,4,'Ironwood BJJ','Knee cut to back take',array['triangle','RNC','triangle']::text[],array['triangle']::text[],array['Jordan']::text[],null,'training',null,'gi'),
+('2026-09-25'::date,75,4,4,'Ironwood BJJ','Bow and arrow from the back',array['bow and arrow','triangle']::text[],array['kimura']::text[],array['Jordan']::text[],null,'training',null,'nogi'),
+('2026-09-30'::date,60,6,3,'Ironwood BJJ','Front headlock to guillotine and anaconda',array['triangle']::text[],array['armbar','armbar']::text[],array['Sam','Jordan']::text[],'Jordan is a problem from the back.','training',null,'gi'),
+('2026-10-02'::date,75,6,3,'Ironwood BJJ','Open mat — positional rounds from the back',array['armbar','bow and arrow']::text[],array['heel hook','heel hook']::text[],array['Jordan']::text[],'Passing felt effortless for once.','training',null,'gi'),
+('2026-10-03'::date,90,7,4,'Ironwood BJJ','Half guard to back take',array['RNC','RNC']::text[],array['triangle']::text[],array['Sam','Jordan']::text[],'Felt sharp today.','open_mat',null,'nogi'),
+('2026-10-05'::date,60,5,4,'Ironwood BJJ','Bow and arrow from the back',array['triangle','armbar']::text[],array['heel hook']::text[],array['Nina','Jordan']::text[],'Finally hit it in live rounds.','training',null,'gi'),
+('2026-10-08'::date,60,2,3,'Ironwood BJJ','Private with Coach Dev — back attacks','{}'::text[],'{}'::text[],array['Coach Dev']::text[],null,'private',null,'gi')
+) as v(trained_on,duration_min,rounds,feel,gym,drilled,subs_hit,subs_caught_in,partners,note,session_type,comp_result,attire)
+where not exists (select 1 from public.sessions where user_id='00000000-0000-4000-a000-000000000001');
+
+-- Jordan reacts to a spread of sessions and leaves a few comments.
+insert into public.session_reactions (session_id,user_id,emoji,created_at)
+select s.id,'00000000-0000-4000-a000-000000000002', case when row_number() over (order by s.trained_on) % 3 = 0 then '👊' else '🔥' end, s.trained_on::timestamptz + interval '20 hours'
+from public.sessions s where s.user_id='00000000-0000-4000-a000-000000000001' and (extract(day from s.trained_on)::int % 4 = 1 or s.session_type='competition')
+on conflict do nothing;
+insert into public.session_comments (session_id,user_id,body,created_at)
+select s.id,'00000000-0000-4000-a000-000000000002', c.body, s.trained_on::timestamptz + interval '21 hours'
+from (values
+ ('2026-03-14','Three finishes in your first comp. Nobody does that.'),
+ ('2026-04-11','Blue belt!! Took you long enough 😄'),
+ ('2026-08-15','That semi was closer than the result. Keep the elbow in.'),
+ ('2026-09-26','Second stripe. The triangle is officially a weapon now.'),
+ ('2026-10-03','I am never rolling no-gi with you again.')
+) as c(day,body)
+join public.sessions s on s.user_id='00000000-0000-4000-a000-000000000001' and s.trained_on=c.day::date
+where not exists (select 1 from public.session_comments x where x.session_id=s.id and x.user_id='00000000-0000-4000-a000-000000000002');
+
+-- Everything /demo needs in one definer call, readable without an account.
+create or replace function public.demo_snapshot()
+returns jsonb language sql security definer set search_path = public stable as $$
+  select jsonb_build_object(
+    'profile', (select to_jsonb(p) - 'date_of_birth' - 'visit_count' - 'last_seen_on' - 'feedback_dismissed_at' - 'notification_prefs' from public.profiles p where p.id='00000000-0000-4000-a000-000000000001'),
+    'sessions', (select coalesce(jsonb_agg(to_jsonb(s) order by s.trained_on desc, s.created_at desc),'[]'::jsonb) from public.sessions s where s.user_id='00000000-0000-4000-a000-000000000001'),
+    'belt_history', (select coalesce(jsonb_agg(to_jsonb(b)),'[]'::jsonb) from public.belt_history b where b.user_id='00000000-0000-4000-a000-000000000001'),
+    'reactions', (select coalesce(jsonb_agg(jsonb_build_object('session_id',r.session_id,'emoji',r.emoji,'count',r.n)),'[]'::jsonb) from (select session_id, emoji, count(*) n from public.session_reactions where session_id in (select id from public.sessions where user_id='00000000-0000-4000-a000-000000000001') group by 1,2) r),
+    'comments', (select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'session_id',c.session_id,'body',c.body,'created_at',c.created_at,'author',jsonb_build_object('display_name',p.display_name,'first_name',p.first_name,'last_name',p.last_name,'belt',p.belt,'avatar_url',p.avatar_url)) order by c.created_at),'[]'::jsonb) from public.session_comments c join public.profiles p on p.id=c.user_id where c.session_id in (select id from public.sessions where user_id='00000000-0000-4000-a000-000000000001')),
+    'followers', (select count(*) from public.follows where followee_id='00000000-0000-4000-a000-000000000001' and status='accepted'),
+    'following', (select count(*) from public.follows where follower_id='00000000-0000-4000-a000-000000000001' and status='accepted')
+  );
+$$;
+grant execute on function public.demo_snapshot() to anon, authenticated;
+

@@ -28,6 +28,7 @@ export function LogForm({
   prefillDate,
   prefillMinutes,
   entryNo,
+  demo = false,
 }: {
   uid: string;
   defaultGym: string | null;
@@ -42,6 +43,8 @@ export function LogForm({
   prefillMinutes?: number;
   // Ordinal of this entry in the athlete's archive (for the submit-row copy).
   entryNo?: number;
+  // Read-only sample (/demo/log): every input works, filing is disabled.
+  demo?: boolean;
 }) {
   const editing = editSession !== null;
   const [state, formAction] = useFormState(
@@ -68,7 +71,14 @@ export function LogForm({
   }, [state, editing]);
 
   return (
-    <form ref={formRef} action={formAction} className="space-y-8">
+    <form
+      ref={formRef}
+      action={formAction}
+      onSubmit={(e) => {
+        if (demo) e.preventDefault();
+      }}
+      className="space-y-8"
+    >
       {editing && (
         <input type="hidden" name="session_id" value={editSession.id} />
       )}
@@ -236,17 +246,21 @@ export function LogForm({
         />
       </Field>
 
-      <Field label="Photos / video" hint="Shows on your session in the feed" asDiv>
-        <MediaUploader
-          key={mediaKey}
-          uid={uid}
-          initialUrls={editSession?.media_urls ?? []}
-        />
-      </Field>
+      {!demo && (
+        <Field label="Photos / video" hint="Shows on your session in the feed" asDiv>
+          <MediaUploader
+            key={mediaKey}
+            uid={uid}
+            initialUrls={editSession?.media_urls ?? []}
+          />
+        </Field>
+      )}
 
       <div className="border-t border-ink pt-5 flex items-center justify-between gap-4 flex-wrap">
         <span className="text-[13px] italic text-ink-mute">
-          {editing
+          {demo
+            ? "Demo — filing is off. Sign in to keep a real log."
+            : editing
             ? "Amendments are part of the record too."
             : entryNo
               ? `Entry Nº ${entryNo} of a lifetime archive.`
@@ -267,7 +281,18 @@ export function LogForm({
               Cancel
             </a>
           )}
-          <SubmitButton editing={editing} />
+          {demo ? (
+            <button
+              type="button"
+              disabled
+              title="Sign in to file sessions"
+              className="bg-ink text-paper px-7 py-3 text-[13px] font-semibold opacity-50 cursor-not-allowed"
+            >
+              File this session →
+            </button>
+          ) : (
+            <SubmitButton editing={editing} />
+          )}
         </span>
       </div>
     </form>

@@ -8,7 +8,13 @@ import { deleteSession } from "@/app/log/actions";
 
 // Client-side fuzzy filter across drilled + notes + subs + partners.
 // Cheap for one user's history — no need to push to the server.
-export function NotesSearch({ sessions }: { sessions: SessionRow[] }) {
+export function NotesSearch({
+  sessions,
+  readOnly = false,
+}: {
+  sessions: SessionRow[];
+  readOnly?: boolean;
+}) {
   const [q, setQ] = useState("");
   const router = useRouter();
   const [pendingDelete, startDelete] = useTransition();
@@ -82,39 +88,43 @@ export function NotesSearch({ sessions }: { sessions: SessionRow[] }) {
                 <span className="font-mono text-[11px] num text-ink-dim">
                   {s.duration_min}m · {s.rounds}r
                 </span>
-                <Link
-                  href={`/log?edit=${s.id}`}
-                  className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition"
-                >
-                  Edit
-                </Link>
-                {confirmId === s.id ? (
+                {!readOnly && (
                   <>
-                    <button
-                      type="button"
-                      onClick={() => onDelete(s.id)}
-                      disabled={pendingDelete}
-                      className="font-mono text-[10px] uppercase tracking-dojo text-accent hover:text-accent-deep transition disabled:opacity-50"
+                    <Link
+                      href={`/log?edit=${s.id}`}
+                      className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition"
                     >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmId(null)}
-                      className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-ink transition"
-                    >
-                      Cancel
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmId(s.id)}
-                    disabled={pendingDelete}
-                    className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
+                      Edit
+                    </Link>
+                    {confirmId === s.id ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onDelete(s.id)}
+                          disabled={pendingDelete}
+                          className="font-mono text-[10px] uppercase tracking-dojo text-accent hover:text-accent-deep transition disabled:opacity-50"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmId(null)}
+                          className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-ink transition"
+                        >
+                          Cancel
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmId(s.id)}
+                        disabled={pendingDelete}
+                        className="font-mono text-[10px] uppercase tracking-dojo text-ink-mute hover:text-accent transition disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
+                    )}
+                      </>
                 )}
               </span>
             </div>

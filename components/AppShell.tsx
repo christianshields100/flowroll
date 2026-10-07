@@ -34,15 +34,32 @@ export async function AppShell({
   children,
   profile,
   active,
+  demo = false,
 }: {
   children: React.ReactNode;
   profile: Profile | null;
-  active: "dashboard" | "log" | "feed" | "chat" | null;
+  active: "dashboard" | "log" | "feed" | "chat" | "profile" | null;
+  // Read-only sample athlete (/demo): nav points at demo routes, no bell,
+  // "Sign in" in place of sign-out, banner on top.
+  demo?: boolean;
 }) {
+  const nav = demo
+    ? [
+        ["/demo", "Dashboard", "dashboard"],
+        ["/demo/log", "Log", "log"],
+        ["/demo/profile", "Profile", "profile"],
+        ["/demo/coach", "Coach", "chat"],
+      ]
+    : [
+        ["/dashboard", "Dashboard", "dashboard"],
+        ["/log", "Log", "log"],
+        ["/feed", "Feed", "feed"],
+        ["/chat", "Coach", "chat"],
+      ];
   // Recent notifications for the bell — one small query per page.
   let items: NotificationRow[] = [];
   let unread = 0;
-  if (profile?.id) {
+  if (profile?.id && !demo) {
     const supabase = createClient();
     const [{ data }, { count }] = await Promise.all([
       supabase
@@ -66,36 +83,42 @@ export async function AppShell({
       <a href="#main" className="skip-link">
         Skip to content
       </a>
+      {demo && (
+        <div className="bg-ink text-paper">
+          <p className="mx-auto max-w-5xl px-5 sm:px-10 py-2 text-[12px] flex items-center justify-between gap-4">
+            <span>
+              <span className="uppercase tracking-dojo text-[10px] text-paper/70 mr-3">Demo</span>
+              A read-only look at FlowRoll with a sample athlete&apos;s log.
+            </span>
+            <Link href="/login" className="shrink-0 underline underline-offset-2 hover:text-accent transition-colors">
+              Start your own →
+            </Link>
+          </p>
+        </div>
+      )}
       <header className="border-b border-ink">
         <div className="mx-auto max-w-5xl px-5 sm:px-10 py-5 flex items-center justify-between gap-3 sm:gap-6">
           <Link
-            href="/dashboard"
+            href={demo ? "/demo" : "/dashboard"}
             className="text-[15px] font-semibold tracking-tightish"
           >
             flowroll<span className="logo-dot text-accent">.</span>
           </Link>
 
           <nav className="flex items-center gap-4 sm:gap-6 text-[13px]">
-            <NavLink href="/dashboard" active={active === "dashboard"}>
-              Dashboard
-            </NavLink>
-            <NavLink href="/log" active={active === "log"}>
-              Log
-            </NavLink>
-            <NavLink href="/feed" active={active === "feed"}>
-              Feed
-            </NavLink>
-            <NavLink href="/chat" active={active === "chat"}>
-              Coach
-            </NavLink>
+            {nav.map(([href, label, key]) => (
+              <NavLink key={href} href={href} active={active === key}>
+                {label}
+              </NavLink>
+            ))}
           </nav>
 
           <div className="flex items-center gap-4">
-            {profile?.id && (
+            {profile?.id && !demo && (
               <NotificationBell items={items} unread={unread} meId={profile.id} />
             )}
             {profile &&
-              (profile.id ? (
+              (profile.id && !demo ? (
                 <Link
                   href={`/u/${profile.id}`}
                   className="hidden sm:inline text-[13px] text-ink-dim hover:text-ink transition-colors"
@@ -118,14 +141,23 @@ export async function AppShell({
                   </span>
                 </span>
               ))}
-            <form action="/auth/signout" method="post">
-              <button
-                type="submit"
+            {demo ? (
+              <Link
+                href="/login"
                 className="text-[11px] uppercase tracking-dojo text-ink-mute hover:text-ink transition-colors"
               >
-                Sign out
-              </button>
-            </form>
+                Sign in
+              </Link>
+            ) : (
+              <form action="/auth/signout" method="post">
+                <button
+                  type="submit"
+                  className="text-[11px] uppercase tracking-dojo text-ink-mute hover:text-ink transition-colors"
+                >
+                  Sign out
+                </button>
+              </form>
+            )}
           </div>
         </div>
       </header>

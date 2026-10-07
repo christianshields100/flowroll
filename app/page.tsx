@@ -10,7 +10,10 @@ export default function Home() {
             <BrandMark />
             <span className="font-display text-lg tracking-tightish">flowroll</span>
           </div>
-          <nav className="text-sm text-ink-dim">
+          <nav className="text-sm text-ink-dim flex items-center gap-5">
+            <Link href="/demo" className="hover:text-accent transition-colors">
+              See the demo
+            </Link>
             <Link href="/login" className="hover:text-accent transition-colors">
               Sign in
             </Link>
