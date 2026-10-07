@@ -228,7 +228,11 @@ export function DashboardView({
                   hint="Read straight from your log — no guessing, no AI"
                 />
                 <div className="mt-2">
-                  <InsightsReport insights={insights} sessionCount={rows.length} />
+                  <InsightsReport
+                    insights={insights}
+                    sessionCount={rows.length}
+                    chatHref={demo ? chatHref : undefined}
+                  />
                 </div>
               </div>
 

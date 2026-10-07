@@ -6,7 +6,10 @@ import { INSIGHTS_MIN_SESSIONS, type Insight } from "@/lib/insights";
 export function InsightsReport({
   insights,
   sessionCount,
+  chatHref,
 }: {
+  // Override the "ask Coach" destination (the demo has no live Coach).
+  chatHref?: string;
   insights: Insight[];
   sessionCount: number;
 }) {
@@ -48,7 +51,7 @@ export function InsightsReport({
           <span className="flex-1 text-sm text-ink leading-relaxed">
             {i.text}{" "}
             <Link
-              href={`/chat?q=${encodeURIComponent(`Explain this insight from my dashboard and tell me what to do about it: "${i.text}"`)}`}
+              href={chatHref ?? `/chat?q=${encodeURIComponent(`Explain this insight from my dashboard and tell me what to do about it: "${i.text}"`)}`}
               className="whitespace-nowrap text-[11px] text-ink-mute hover:text-accent transition-colors"
             >
               ask Coach →
