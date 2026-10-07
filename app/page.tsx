@@ -14,6 +14,9 @@ export default function Home() {
             <Link href="/demo" className="hover:text-accent transition-colors">
               See the demo
             </Link>
+            <Link href="/connect" className="hover:text-accent transition-colors">
+              Connect to AI
+            </Link>
             <Link href="/login" className="hover:text-accent transition-colors">
               Sign in
             </Link>

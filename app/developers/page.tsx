@@ -50,6 +50,11 @@ export default function DevelopersPage() {
               or any tool that supports MCP connectors, sign in with your FlowRoll
               account, click <b>Allow</b>, and the assistant can read your log,
               pull your stats, and log sessions for you. No keys to copy.
+              Step-by-step instructions for every tool are on the{" "}
+              <Link href="/connect" className="text-accent hover:underline">
+                Connect page
+              </Link>
+              .
             </p>
             <Code>{`https://www.flowroll.xyz/api/mcp`}</Code>
             <ul className="mt-3 list-disc pl-5 space-y-1">

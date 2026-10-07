@@ -38,7 +38,7 @@ export async function AppShell({
 }: {
   children: React.ReactNode;
   profile: Profile | null;
-  active: "dashboard" | "log" | "feed" | "chat" | "profile" | null;
+  active: "dashboard" | "log" | "feed" | "chat" | "profile" | "connect" | null;
   // Read-only sample athlete (/demo): nav points at demo routes, no bell,
   // "Sign in" in place of sign-out, banner on top.
   demo?: boolean;
@@ -49,12 +49,14 @@ export async function AppShell({
         ["/demo/log", "Log", "log"],
         ["/demo/feed", "Feed", "feed"],
         ["/demo/coach", "Coach", "chat"],
+        ["/connect", "Connect", "connect"],
       ]
     : [
         ["/dashboard", "Dashboard", "dashboard"],
         ["/log", "Log", "log"],
         ["/feed", "Feed", "feed"],
         ["/chat", "Coach", "chat"],
+        ["/connect", "Connect", "connect"],
       ];
   // Recent notifications for the bell — one small query per page.
   let items: NotificationRow[] = [];

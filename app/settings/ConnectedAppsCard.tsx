@@ -30,7 +30,7 @@ export function ConnectedAppsCard({ apps }: { apps: Row[] }) {
       <p className="text-[11px] uppercase tracking-dojo text-accent">Connected apps</p>
       <p className="mt-1 text-sm text-ink-mute">
         AI assistants you&apos;ve connected to your log. See{" "}
-        <Link href="/developers#connect" className="underline hover:text-ink">
+        <Link href="/connect" className="underline hover:text-ink">
           how to connect one
         </Link>
         .
