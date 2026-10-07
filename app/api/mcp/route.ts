@@ -50,6 +50,11 @@ export async function POST(req: Request) {
   const batch = Array.isArray(body);
   const requests = batch ? (body as RpcRequest[]) : [body as RpcRequest];
   const supabase = apiClient();
+
+  // Validate the token once per request so revoked/expired tokens get a
+  // clean 401 (and the client re-runs the connect flow) before any tool runs.
+  const check = await supabase.rpc("oauth_check", { p_access_hash: tokenHash });
+  if (check.error) return unauthorized("This connection has expired or been disconnected. Reconnect FlowRoll.");
   const responses: unknown[] = [];
 
   for (const r of requests) {

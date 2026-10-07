@@ -1958,3 +1958,11 @@ begin
     returning *;
 end $$;
 grant execute on function public.mcp_create_sessions(text, jsonb) to anon, authenticated;
+
+-- Cheap per-request token check for the MCP endpoint (so even ping/initialize
+-- reject a revoked or expired token instead of waiting for a tool call).
+create or replace function public.oauth_check(p_access_hash text)
+returns uuid language sql security definer set search_path = public as $$
+  select public.oauth_authenticate(p_access_hash, 'read');
+$$;
+grant execute on function public.oauth_check(text) to anon, authenticated;
