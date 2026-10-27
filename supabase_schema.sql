@@ -2226,7 +2226,7 @@ begin
          and data->>'belt' = latest.belt and (data->>'stripes')::int = latest.stripes;
     end if;
   end if;
-end $;
+end $$;
 revoke execute on function public.apply_belt_change(uuid, text, integer, text, date) from public, anon, authenticated;
 
 -- Settings → belt picker calls this.
