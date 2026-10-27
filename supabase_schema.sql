@@ -2304,3 +2304,22 @@ begin
   return new;
 end;
 $$;
+
+-- A backdated promotion must not land before the 'start' row, or the
+-- newest-by-date logic (corrections, undo, "time at rank") picks the wrong
+-- row. Keep the start row at or before every promotion, whatever path
+-- wrote it (set_belt, the fallback trigger, or a date edit in Settings).
+create or replace function public.belt_history_keep_start_earliest()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.kind = 'promotion' then
+    update public.belt_history
+       set promoted_on = new.promoted_on
+     where user_id = new.user_id and kind = 'start' and promoted_on > new.promoted_on;
+  end if;
+  return new;
+end $$;
+drop trigger if exists belt_history_keep_start_earliest on public.belt_history;
+create trigger belt_history_keep_start_earliest
+  after insert or update of promoted_on on public.belt_history
+  for each row execute function public.belt_history_keep_start_earliest();
