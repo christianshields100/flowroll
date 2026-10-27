@@ -1403,13 +1403,13 @@ declare
 begin
   if uid is null then raise exception 'not_signed_in'; end if;
   select * into latest from public.belt_history
-   where user_id = uid order by promoted_on desc, created_at desc limit 1;
+   where user_id = uid order by promoted_on desc, created_at desc, (kind = 'promotion') desc limit 1;
   if not found or latest.kind <> 'promotion' then
     raise exception 'nothing_to_undo';
   end if;
   select * into prev from public.belt_history
    where user_id = uid and id <> latest.id
-   order by promoted_on desc, created_at desc limit 1;
+   order by promoted_on desc, created_at desc, (kind = 'promotion') desc limit 1;
   if not found then raise exception 'nothing_to_undo'; end if;
 
   perform set_config('flowroll.skip_belt_trigger', '1', true);
@@ -2199,14 +2199,14 @@ begin
 
   -- correction: make the timeline agree with the fixed rank without adding to it
   select * into latest from public.belt_history
-   where user_id = p_user order by promoted_on desc, created_at desc limit 1;
+   where user_id = p_user order by promoted_on desc, created_at desc, (kind = 'promotion') desc limit 1;
   if not found then
     insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
     values (p_user, 'start', p_belt, p_stripes, cur.created_at::date);
     return;
   end if;
   select * into prev from public.belt_history
-   where user_id = p_user and id <> latest.id order by promoted_on desc, created_at desc limit 1;
+   where user_id = p_user and id <> latest.id order by promoted_on desc, created_at desc, (kind = 'promotion') desc limit 1;
   has_prev := found;
   if latest.kind = 'promotion' and has_prev and prev.belt = p_belt and prev.stripes = p_stripes then
     -- "that promotion never happened": remove it and its notification
@@ -2293,7 +2293,7 @@ begin
   else
     select * into latest from public.belt_history
      where user_id = new.id
-     order by promoted_on desc, created_at desc limit 1;
+     order by promoted_on desc, created_at desc, (kind = 'promotion') desc limit 1;
     if found and latest.kind = 'promotion'
        and public.belt_rank(latest.belt, latest.stripes) = old_rank then
       delete from public.belt_history where id = latest.id;

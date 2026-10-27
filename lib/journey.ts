@@ -63,7 +63,9 @@ export function journeyHeader(
   const sorted = [...history].sort(
     (a, b) =>
       a.promoted_on.localeCompare(b.promoted_on) ||
-      a.created_at.localeCompare(b.created_at),
+      a.created_at.localeCompare(b.created_at) ||
+      // Same day, same instant (start + promotion written together): start first.
+      (a.kind === "start" ? 0 : 1) - (b.kind === "start" ? 0 : 1),
   );
   const cur = sorted[sorted.length - 1];
   if (!cur) return null;

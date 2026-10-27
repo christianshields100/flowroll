@@ -76,7 +76,8 @@ export function DashboardView({
   const sortedBelts = [...belts].sort(
     (a, b) =>
       b.promoted_on.localeCompare(a.promoted_on) ||
-      b.created_at.localeCompare(a.created_at),
+      b.created_at.localeCompare(a.created_at) ||
+      (b.kind === "start" ? 0 : 1) - (a.kind === "start" ? 0 : 1),
   );
   let promo: {
     rank: string;
