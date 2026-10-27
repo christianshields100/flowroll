@@ -97,7 +97,7 @@ export const MCP_TOOLS = [
   {
     name: "update_profile",
     description:
-      "Update the athlete's profile: first_name, last_name, belt (white|blue|purple|brown|black), stripes (0–4), home_gym_name, is_private. A higher belt/stripes is recorded as a promotion on their journey timeline.",
+      "Update the athlete's profile: first_name, last_name, home_gym_name, is_private, and belt/stripes. Changing belt or stripes REQUIRES change_kind: 'promotion' when they were actually promoted (recorded on their journey timeline, dated promoted_on or today) or 'correction' when the saved rank was simply wrong (fixes it, no timeline entry). If the athlete didn't say which, ask before calling.",
     inputSchema: {
       type: "object",
       properties: {
@@ -107,6 +107,12 @@ export const MCP_TOOLS = [
         stripes: { type: "number", minimum: 0, maximum: 4 },
         home_gym_name: { type: "string" },
         is_private: { type: "boolean", description: "Private accounts approve followers." },
+        change_kind: {
+          type: "string",
+          enum: ["promotion", "correction"],
+          description: "Required with belt or stripes: 'promotion' (real promotion, goes on the timeline) or 'correction' (fix a wrong entry).",
+        },
+        promoted_on: { type: "string", description: "YYYY-MM-DD the promotion happened (promotions only; default today)." },
       },
     },
   },
@@ -271,11 +277,24 @@ export async function runMcpTool(
     if ("belt" in a) patch.belt = String(a.belt).toLowerCase();
     if ("stripes" in a) patch.stripes = Math.floor(Number(a.stripes));
     if ("is_private" in a) patch.is_private = Boolean(a.is_private);
+    if ("belt" in a || "stripes" in a) {
+      const kind = String(a.change_kind ?? "");
+      if (kind !== "promotion" && kind !== "correction")
+        return text("Changing belt or stripes needs change_kind: 'promotion' (they were promoted) or 'correction' (the saved rank was wrong). Ask the athlete which, then call again.", true);
+      patch.change_kind = kind;
+      if (kind === "promotion" && typeof a.promoted_on === "string") {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(a.promoted_on)) return text("promoted_on must be YYYY-MM-DD.", true);
+        patch.promoted_on = a.promoted_on;
+      }
+    }
     if (Object.keys(patch).length === 0) return text("Nothing to change — pass at least one field.", true);
     const { data, error } = await supabase.rpc("mcp_update_profile", { p_access_hash: tokenHash, p_patch: patch });
     if (error) {
       if (error.message.includes("invalid_belt")) return text("belt must be white, blue, purple, brown, or black.", true);
       if (error.message.includes("invalid_stripes")) return text("stripes must be 0–4.", true);
+      if (error.message.includes("not_a_promotion")) return text("That rank isn't higher than their current one, so it can't be a promotion. Use change_kind 'correction' if the saved rank was wrong.", true);
+      if (error.message.includes("future_date")) return text("promoted_on can't be in the future.", true);
+      if (error.message.includes("change_kind_required")) return text("Changing belt or stripes needs change_kind: 'promotion' or 'correction'.", true);
       rpcFail(error.message);
     }
     const p = (data as unknown[])?.[0];

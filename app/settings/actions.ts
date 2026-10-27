@@ -39,17 +39,43 @@ export async function updateProfile(formData: FormData) {
       first_name: first,
       last_name: last,
       dob,
-      belt,
-      stripes,
       home_gym_name: homeGymName,
       home_gym_place_id: homeGymPlaceId,
     })
     .eq("id", user.id);
 
+  // Belt and stripes are not a plain column write: the athlete says whether
+  // the change is a promotion (journey entry, dated) or a correction (no
+  // entry), and set_belt() keeps belt_history consistent either way.
+  const { data: current } = await supabase
+    .from("profiles")
+    .select("belt, stripes")
+    .eq("id", user.id)
+    .single();
+  if (current && (current.belt !== belt || current.stripes !== stripes)) {
+    const kindRaw = (formData.get("belt_change_kind") ?? "").toString();
+    const up = rankOf(belt, stripes) > rankOf(current.belt, current.stripes);
+    // A "promotion" to a lower rank can't be one; treat it as a correction.
+    const kind = kindRaw === "promotion" && up ? "promotion" : "correction";
+    const dateRaw = (formData.get("promoted_on") ?? "").toString();
+    const promotedOn =
+      kind === "promotion" && /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null;
+    await supabase.rpc("set_belt", {
+      p_belt: belt,
+      p_stripes: stripes,
+      p_kind: kind,
+      p_promoted_on: promotedOn,
+    });
+  }
+
   revalidatePath(`/u/${user.id}`);
   revalidatePath("/dashboard");
   revalidatePath("/feed");
   redirect(`/u/${user.id}`);
+}
+
+function rankOf(belt: string, stripes: number): number {
+  return Math.max(0, BELTS.indexOf(belt)) * 5 + stripes;
 }
 
 // Age gate (Terms §2): 13+ enforced from date of birth, server-side.

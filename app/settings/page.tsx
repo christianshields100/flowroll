@@ -127,6 +127,7 @@ export default async function SettingsPage() {
           <BeltStripePicker
             initialBelt={profile?.belt ?? "white"}
             initialStripes={profile?.stripes ?? 0}
+            askIntent
           />
         </Field>
 

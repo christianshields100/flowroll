@@ -2152,3 +2152,155 @@ end $$;
 -- Existing tokens: normalize any scope string that isn't already canonical.
 update public.oauth_tokens set scope = public.oauth_normalize_scope(scope)
  where scope not in ('read', 'read write');
+
+-- ============================================================
+-- v22: Belt changes carry intent — a promotion or a correction
+-- ============================================================
+-- Until now the trigger inferred "promotion" from the rank going up, so a
+-- mistaken belt (from Settings or an AI tool) became a timeline entry and a
+-- congratulations notification. Now every deliberate belt change says what
+-- it is: 'promotion' (recorded on the journey, with a date) or 'correction'
+-- (fix the current rank; the timeline is edited to agree, never extended).
+-- The old inference remains only as a fallback for raw column updates.
+
+create or replace function public.apply_belt_change(
+  p_user uuid, p_belt text, p_stripes integer, p_kind text, p_promoted_on date default null
+) returns void language plpgsql security definer set search_path = public as $$
+declare
+  cur public.profiles%rowtype;
+  latest public.belt_history%rowtype;
+  prev public.belt_history%rowtype;
+  has_prev boolean;
+  d date := coalesce(p_promoted_on, current_date);
+begin
+  if p_belt not in ('white','blue','purple','brown','black') then raise exception 'invalid_belt'; end if;
+  if p_stripes is null or p_stripes < 0 or p_stripes > 4 then raise exception 'invalid_stripes'; end if;
+  if p_kind not in ('promotion','correction') then raise exception 'invalid_kind'; end if;
+  if d > current_date then raise exception 'future_date'; end if;
+  select * into cur from public.profiles where id = p_user;
+  if not found then raise exception 'not_found'; end if;
+  if cur.belt = p_belt and cur.stripes = p_stripes then return; end if;
+
+  perform set_config('flowroll.skip_belt_trigger', '1', true);
+  update public.profiles set belt = p_belt, stripes = p_stripes where id = p_user;
+
+  if p_kind = 'promotion' then
+    if public.belt_rank(p_belt, p_stripes) <= public.belt_rank(cur.belt, cur.stripes) then
+      raise exception 'not_a_promotion';
+    end if;
+    if not exists (select 1 from public.belt_history where user_id = p_user) then
+      insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+      values (p_user, 'start', cur.belt, cur.stripes, least(cur.created_at::date, d));
+    end if;
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (p_user, 'promotion', p_belt, p_stripes, d);   -- notify_on_promotion fires
+    return;
+  end if;
+
+  -- correction: make the timeline agree with the fixed rank without adding to it
+  select * into latest from public.belt_history
+   where user_id = p_user order by promoted_on desc, created_at desc limit 1;
+  if not found then
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (p_user, 'start', p_belt, p_stripes, cur.created_at::date);
+    return;
+  end if;
+  select * into prev from public.belt_history
+   where user_id = p_user and id <> latest.id order by promoted_on desc, created_at desc limit 1;
+  has_prev := found;
+  if latest.kind = 'promotion' and has_prev and prev.belt = p_belt and prev.stripes = p_stripes then
+    -- "that promotion never happened": remove it and its notification
+    delete from public.belt_history where id = latest.id;
+    delete from public.notifications
+     where user_id = p_user and type = 'promotion' and created_at >= latest.created_at;
+  else
+    -- the latest entry recorded the wrong rank: rewrite it in place
+    update public.belt_history set belt = p_belt, stripes = p_stripes where id = latest.id;
+  end if;
+end $$;
+revoke execute on function public.apply_belt_change(uuid, text, integer, text, date) from public, anon, authenticated;
+
+-- Settings → belt picker calls this.
+create or replace function public.set_belt(p_belt text, p_stripes integer, p_kind text, p_promoted_on date default null)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'not_signed_in'; end if;
+  perform public.apply_belt_change(auth.uid(), p_belt, p_stripes, p_kind, p_promoted_on);
+end $$;
+grant execute on function public.set_belt(text, integer, text, date) to authenticated;
+revoke execute on function public.set_belt(text, integer, text, date) from anon;
+
+-- MCP update_profile: belt/stripes require change_kind; other fields as before.
+create or replace function public.mcp_update_profile(p_access_hash text, p_patch jsonb)
+returns table (id uuid, display_name text, first_name text, last_name text, belt text, stripes smallint, home_gym_name text, is_private boolean)
+language plpgsql security definer set search_path = public as $$
+declare uid uuid; cur public.profiles%rowtype;
+begin
+  uid := public.oauth_authenticate(p_access_hash, 'write');
+  if (p_patch ? 'belt') or (p_patch ? 'stripes') then
+    if not (p_patch ? 'change_kind') then raise exception 'change_kind_required'; end if;
+    select * into cur from public.profiles where id = uid;
+    perform public.apply_belt_change(
+      uid,
+      coalesce(p_patch->>'belt', cur.belt),
+      coalesce((p_patch->>'stripes')::int, cur.stripes),
+      p_patch->>'change_kind',
+      nullif(p_patch->>'promoted_on', '')::date);
+  end if;
+  update public.profiles p set
+    first_name    = case when p_patch ? 'first_name'    then left(nullif(btrim(p_patch->>'first_name'), ''), 60) else p.first_name end,
+    last_name     = case when p_patch ? 'last_name'     then left(nullif(btrim(p_patch->>'last_name'), ''), 60) else p.last_name end,
+    home_gym_name = case when p_patch ? 'home_gym_name' then left(nullif(btrim(p_patch->>'home_gym_name'), ''), 120) else p.home_gym_name end,
+    is_private    = case when p_patch ? 'is_private'    then (p_patch->>'is_private')::boolean else p.is_private end
+  where p.id = uid;
+  return query select p.id, p.display_name, p.first_name, p.last_name, p.belt, p.stripes, p.home_gym_name, p.is_private
+    from public.profiles p where p.id = uid;
+end $$;
+
+-- Fallback inference for raw column updates: a reversal also retracts the
+-- promotion notification (previously only undo_last_promotion did).
+create or replace function public.track_belt_change()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare
+  old_rank integer := public.belt_rank(old.belt, old.stripes);
+  new_rank integer := public.belt_rank(new.belt, new.stripes);
+  latest public.belt_history%rowtype;
+begin
+  if current_setting('flowroll.skip_belt_trigger', true) = '1' then
+    return new;
+  end if;
+
+  if not old.onboarded then
+    delete from public.belt_history where user_id = new.id and kind = 'start';
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (new.id, 'start', new.belt, new.stripes, current_date);
+    return new;
+  end if;
+
+  if new_rank = old_rank then
+    return new;
+  end if;
+
+  if not exists (select 1 from public.belt_history where user_id = new.id) then
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (new.id, 'start', old.belt, old.stripes, old.created_at::date);
+  end if;
+
+  if new_rank > old_rank then
+    insert into public.belt_history (user_id, kind, belt, stripes, promoted_on)
+    values (new.id, 'promotion', new.belt, new.stripes, current_date);
+  else
+    select * into latest from public.belt_history
+     where user_id = new.id
+     order by promoted_on desc, created_at desc limit 1;
+    if found and latest.kind = 'promotion'
+       and public.belt_rank(latest.belt, latest.stripes) = old_rank then
+      delete from public.belt_history where id = latest.id;
+      delete from public.notifications
+       where user_id = new.id and type = 'promotion' and created_at >= latest.created_at;
+    end if;
+  end if;
+  return new;
+end;
+$$;
