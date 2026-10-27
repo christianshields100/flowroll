@@ -30,12 +30,12 @@ export default async function SettingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: apiKeys }, { data: beltRows }, { data: connectedApps }] =
+  const [{ data: profile }, { data: apiKeys }, { data: beltRows }, { data: connectedApps }, { data: privateRows }] =
     await Promise.all([
       supabase
         .from("profiles")
         .select(
-          "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id, notification_prefs",
+          "id, display_name, first_name, last_name, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
         )
         .eq("id", user!.id)
         .single(),
@@ -55,7 +55,11 @@ export default async function SettingsPage() {
         .is("revoked_at", null)
         .gt("refresh_expires_at", new Date().toISOString())
         .order("created_at", { ascending: false }),
+      // Owner-only columns (dob, notification prefs) come through a definer
+      // RPC; PostgREST can't read them directly for anyone.
+      supabase.rpc("my_private_profile"),
     ]);
+  const priv = ((privateRows ?? []) as { dob: string | null; notification_prefs: Record<string, boolean> | null }[])[0];
 
   return (
     <AppShell profile={profile} active={null}>
@@ -114,7 +118,7 @@ export default async function SettingsPage() {
             type="date"
             max={dobMax}
             name="dob"
-            defaultValue={profile?.dob ?? ""}
+            defaultValue={priv?.dob ?? ""}
             className={inputCls}
           />
         </Field>
@@ -153,9 +157,9 @@ export default async function SettingsPage() {
 
       <NotificationPrefsCard
         initial={{
-          social: (profile?.notification_prefs as { social?: boolean } | null)?.social ?? true,
-          partners: (profile?.notification_prefs as { partners?: boolean } | null)?.partners ?? true,
-          journey: (profile?.notification_prefs as { journey?: boolean } | null)?.journey ?? true,
+          social: priv?.notification_prefs?.social ?? true,
+          partners: priv?.notification_prefs?.partners ?? true,
+          journey: priv?.notification_prefs?.journey ?? true,
         }}
       />
 

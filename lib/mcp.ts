@@ -153,11 +153,13 @@ export type ToolResult = { content: { type: "text"; text: string }[]; isError?: 
 const text = (t: string, isError = false): ToolResult => ({ content: [{ type: "text", text: t }], isError });
 
 export class McpAuthError extends Error {}
+export class McpRateLimitError extends Error {}
 
 function rpcFail(message: string | undefined): never {
   const m = message ?? "";
   if (m.includes("invalid_token") || m.includes("expired_token")) throw new McpAuthError(m);
   if (m.includes("insufficient_scope")) throw new McpAuthError("insufficient_scope");
+  if (m.includes("rate_limited")) throw new McpRateLimitError("Daily limit of 1,000 requests reached for this connection. It resets at midnight UTC.");
   throw new Error(m || "database error");
 }
 

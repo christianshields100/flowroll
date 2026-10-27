@@ -2,7 +2,7 @@
 // per POST; auth is an OAuth bearer token issued by /api/oauth/token.
 import { apiClient } from "@/lib/api-auth";
 import { bearerTokenHash, oauthJson, OAUTH_CORS, ISSUER } from "@/lib/oauth";
-import { MCP_INSTRUCTIONS, MCP_SERVER_INFO, MCP_TOOLS, McpAuthError, runMcpTool } from "@/lib/mcp";
+import { MCP_INSTRUCTIONS, MCP_SERVER_INFO, MCP_TOOLS, McpAuthError, McpRateLimitError, runMcpTool } from "@/lib/mcp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -92,6 +92,7 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       if (err instanceof McpAuthError) return unauthorized(err.message);
+      if (err instanceof McpRateLimitError) return oauthJson(rpcError(id, -32000, err.message), 429);
       responses.push(rpcError(id, -32603, err instanceof Error ? err.message : "Internal error"));
     }
   }

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { displayName } from "@/lib/profile";
 import { SiteFooter } from "@/components/SiteFooter";
 import { decideAuthorization } from "./actions";
+import { normalizeScope } from "@/lib/oauth-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,9 @@ export default async function AuthorizePage({
   const challenge = searchParams.code_challenge ?? "";
   const method = searchParams.code_challenge_method ?? "";
   const responseType = searchParams.response_type ?? "code";
-  const scope = (searchParams.scope ?? "read write").trim() || "read write";
+  // Normalized here and again in the database, so what the athlete sees is
+  // exactly what the token will carry.
+  const scope = normalizeScope(searchParams.scope ?? "read write");
 
   let problem: string | null = null;
   let clientName = "An AI assistant";
@@ -44,7 +47,7 @@ export default async function AuthorizePage({
     else clientName = c.client_name;
   }
 
-  const wantsWrite = /\bwrite\b/.test(scope);
+  const wantsWrite = scope === "read write";
 
   return (
     <div className="min-h-screen flex flex-col bg-paper">
@@ -113,7 +116,7 @@ export default async function AuthorizePage({
                 <Link href="/settings#connected-apps" className="underline hover:text-ink">
                   Settings → Connected apps
                 </Link>
-                . Access expires on its own after 90 days of disuse.
+                . Access expires on its own 90 days after you connect; reconnect any time.
               </p>
             </>
           )}

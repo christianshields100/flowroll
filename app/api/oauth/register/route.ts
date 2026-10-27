@@ -2,6 +2,7 @@
 // get a client_id before sending the athlete to /oauth/authorize.
 import { apiClient } from "@/lib/api-auth";
 import { oauthError, oauthJson, OAUTH_CORS } from "@/lib/oauth";
+import { normalizeScope } from "@/lib/oauth-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export async function POST(req: Request) {
       token_endpoint_auth_method: "none",
       grant_types: ["authorization_code", "refresh_token"],
       response_types: ["code"],
-      scope: "read write",
+      scope: normalizeScope(typeof body.scope === "string" ? body.scope : "read write"),
     },
     201,
   );

@@ -16,12 +16,12 @@ export default async function DashboardPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profile }, { data: sessions }, { data: history }] =
+  const [{ data: profile }, { data: sessions }, { data: history }, { data: privateRows }] =
     await Promise.all([
       supabase
         .from("profiles")
         .select(
-          "id, display_name, first_name, last_name, belt, stripes, avatar_url, visit_count, last_seen_on, feedback_dismissed_at",
+          "id, display_name, first_name, last_name, belt, stripes, avatar_url",
         )
         .eq("id", user!.id)
         .single(),
@@ -36,21 +36,27 @@ export default async function DashboardPage() {
         .from("belt_history")
         .select("id, kind, belt, stripes, promoted_on, created_at")
         .eq("user_id", user!.id),
+      supabase.rpc("my_private_profile"),
     ]);
+  const priv = ((privateRows ?? []) as {
+    visit_count: number;
+    last_seen_on: string | null;
+    feedback_dismissed_at: string | null;
+  }[])[0];
 
   // Once-a-day visit counter; after 3 distinct days the feedback prompt
   // appears (until dismissed or answered).
   const now = new Date();
   const todayIso = isoDate(now);
-  let visitCount = profile?.visit_count ?? 0;
-  if (profile && profile.last_seen_on !== todayIso) {
+  let visitCount = priv?.visit_count ?? 0;
+  if (profile && priv && priv.last_seen_on !== todayIso) {
     visitCount += 1;
     await supabase
       .from("profiles")
       .update({ visit_count: visitCount, last_seen_on: todayIso })
       .eq("id", user!.id);
   }
-  const showFeedback = visitCount >= 3 && !profile?.feedback_dismissed_at;
+  const showFeedback = visitCount >= 3 && !priv?.feedback_dismissed_at;
 
   const rows = (sessions ?? []) as SessionRow[];
   const belts = (history ?? []) as BeltHistoryRow[];

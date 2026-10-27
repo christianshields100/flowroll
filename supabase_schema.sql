@@ -2035,3 +2035,120 @@ begin
     from public.profiles p where p.id = uid;
 end $$;
 grant execute on function public.mcp_update_profile(text, jsonb) to anon, authenticated;
+
+-- ============================================================
+-- v21: Private profile columns, MCP rate limit, strict OAuth scopes
+-- ============================================================
+
+-- 1. profiles is readable by every signed-in user (needed for the feed,
+--    profiles, partner lists), but five columns are private to the owner:
+--    dob, notification_prefs, visit_count, last_seen_on, feedback_dismissed_at.
+--    Column-level grants hide them from PostgREST for everyone (grants are
+--    not row-aware), and the owner reads their own through a definer RPC.
+--    Writes are unaffected: update privilege stays, RLS "update own" applies.
+revoke select on public.profiles from anon, authenticated;
+grant select (id, display_name, first_name, last_name, belt, stripes, avatar_url,
+              is_private, home_gym_name, home_gym_place_id, onboarded, created_at)
+  on public.profiles to authenticated;
+
+create or replace function public.my_private_profile()
+returns table (dob date, notification_prefs jsonb, visit_count integer, last_seen_on date, feedback_dismissed_at timestamptz)
+language sql security definer set search_path = public stable as $$
+  select p.dob, p.notification_prefs, p.visit_count, p.last_seen_on, p.feedback_dismissed_at
+    from public.profiles p where p.id = auth.uid();
+$$;
+grant execute on function public.my_private_profile() to authenticated;
+revoke execute on function public.my_private_profile() from anon;
+
+-- The demo snapshot subtracted a key that doesn't exist ('date_of_birth');
+-- the column is 'dob'.
+create or replace function public.demo_snapshot()
+returns jsonb language sql security definer set search_path = public stable as $$
+  with me as (select '00000000-0000-4000-a000-000000000001'::uuid id),
+  followees as (select followee_id id from public.follows where follower_id=(select id from me) and status='accepted'),
+  followers as (select follower_id id from public.follows where followee_id=(select id from me) and status='accepted'),
+  feed as (select s.* from public.sessions s where s.user_id in (select id from followees) order by s.trained_on desc, s.created_at desc limit 30),
+  visible as (select id from public.sessions where user_id=(select id from me) union select id from feed),
+  prof as (select p.id, p.display_name, p.first_name, p.last_name, p.belt, p.stripes, p.avatar_url, p.is_private from public.profiles p)
+  select jsonb_build_object(
+    'profile', (select to_jsonb(p) - 'dob' - 'date_of_birth' - 'visit_count' - 'last_seen_on' - 'feedback_dismissed_at' - 'notification_prefs' from public.profiles p where p.id=(select id from me)),
+    'sessions', (select coalesce(jsonb_agg(to_jsonb(s) order by s.trained_on desc, s.created_at desc),'[]'::jsonb) from public.sessions s where s.user_id=(select id from me)),
+    'belt_history', (select coalesce(jsonb_agg(to_jsonb(b)),'[]'::jsonb) from public.belt_history b where b.user_id=(select id from me)),
+    'feed', (select coalesce(jsonb_agg(to_jsonb(f) order by f.trained_on desc, f.created_at desc),'[]'::jsonb) from feed f),
+    'people', (select coalesce(jsonb_object_agg(p.id, to_jsonb(p)),'{}'::jsonb) from prof p where p.id in (select id from followees union select id from followers union select user_id from feed)),
+    'following_ids', (select coalesce(jsonb_agg(id),'[]'::jsonb) from followees),
+    'follower_ids', (select coalesce(jsonb_agg(id),'[]'::jsonb) from followers),
+    'reactions', (select coalesce(jsonb_agg(jsonb_build_object('session_id',r.session_id,'emoji',r.emoji,'count',r.n,'mine',r.mine)),'[]'::jsonb) from (select session_id, emoji, count(*) n, bool_or(user_id=(select id from me)) mine from public.session_reactions where session_id in (select id from visible) group by 1,2) r),
+    'comments', (select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'session_id',c.session_id,'body',c.body,'created_at',c.created_at,'author',jsonb_build_object('display_name',p.display_name,'first_name',p.first_name,'last_name',p.last_name,'belt',p.belt,'avatar_url',p.avatar_url)) order by c.created_at),'[]'::jsonb) from public.session_comments c join public.profiles p on p.id=c.user_id where c.session_id in (select id from visible)),
+    'followers', (select count(*) from followers),
+    'following', (select count(*) from followees)
+  );
+$$;
+
+-- 2. MCP rate limit: same shape as api_usage — one row per token per day,
+--    1,000 calls/day. The up-front token check (oauth_check) doesn't count;
+--    only tool executions do.
+create table if not exists public.oauth_usage (
+  token_id uuid not null references public.oauth_tokens(id) on delete cascade,
+  day      date not null default current_date,
+  count    integer not null default 0,
+  primary key (token_id, day)
+);
+alter table public.oauth_usage enable row level security;
+
+-- 3. Scopes: stored normalized ('read' or 'read write'), checked as a word.
+drop function if exists public.oauth_authenticate(text, text);
+create or replace function public.oauth_authenticate(
+  p_access_hash text, p_scope text default 'read', p_count boolean default true, p_daily_limit integer default 1000
+) returns uuid language plpgsql security definer set search_path = public as $$
+declare t public.oauth_tokens%rowtype; n integer;
+begin
+  select * into t from public.oauth_tokens where access_hash = p_access_hash;
+  if not found or t.revoked_at is not null then raise exception 'invalid_token'; end if;
+  if t.access_expires_at < now() then raise exception 'expired_token'; end if;
+  if not (p_scope = any (string_to_array(t.scope, ' '))) then raise exception 'insufficient_scope'; end if;
+  if p_count then
+    insert into public.oauth_usage (token_id, day, count) values (t.id, current_date, 1)
+    on conflict (token_id, day) do update set count = public.oauth_usage.count + 1
+    returning count into n;
+    if n > p_daily_limit then raise exception 'rate_limited'; end if;
+  end if;
+  update public.oauth_tokens set last_used_at = now() where id = t.id;
+  return t.user_id;
+end $$;
+revoke execute on function public.oauth_authenticate(text, text, boolean, integer) from public, anon, authenticated;
+
+create or replace function public.oauth_check(p_access_hash text)
+returns uuid language sql security definer set search_path = public as $$
+  select public.oauth_authenticate(p_access_hash, 'read', false);
+$$;
+
+create or replace function public.oauth_normalize_scope(p_scope text)
+returns text language sql immutable as $$
+  select case when 'write' = any (string_to_array(lower(coalesce(p_scope, '')), ' ')) then 'read write' else 'read' end;
+$$;
+
+create or replace function public.oauth_issue_code(
+  p_client_id uuid, p_redirect_uri text, p_code_challenge text, p_scope text
+) returns text language plpgsql security definer set search_path = public, extensions as $$
+declare uid uuid := auth.uid(); c public.oauth_clients%rowtype; code text;
+begin
+  if uid is null then raise exception 'not_signed_in'; end if;
+  select * into c from public.oauth_clients where client_id = p_client_id;
+  if not found or not (p_redirect_uri = any (c.redirect_uris)) then
+    raise exception 'invalid_client';
+  end if;
+  if p_code_challenge is null or char_length(p_code_challenge) < 20 then
+    raise exception 'invalid_request';
+  end if;
+  delete from public.oauth_codes where expires_at < now() - interval '1 day';
+  code := 'frc_' || encode(gen_random_bytes(32), 'hex');
+  insert into public.oauth_codes (code_hash, client_id, user_id, redirect_uri, code_challenge, scope, expires_at)
+  values (encode(digest(code, 'sha256'), 'hex'), p_client_id, uid, p_redirect_uri, p_code_challenge,
+          public.oauth_normalize_scope(p_scope), now() + interval '10 minutes');
+  return code;
+end $$;
+
+-- Existing tokens: normalize any scope string that isn't already canonical.
+update public.oauth_tokens set scope = public.oauth_normalize_scope(scope)
+ where scope not in ('read', 'read write');

@@ -10,10 +10,12 @@ export default async function WelcomePage() {
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, first_name, last_name, dob, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
+      "id, display_name, first_name, last_name, belt, stripes, avatar_url, home_gym_name, home_gym_place_id",
     )
     .eq("id", user!.id)
     .single();
+  const { data: privateRows } = await supabase.rpc("my_private_profile");
+  const priv = ((privateRows ?? []) as { dob: string | null }[])[0];
 
   return (
     <main className="min-h-screen flex items-center justify-center px-6 py-12">
@@ -31,7 +33,7 @@ export default async function WelcomePage() {
             initial={{
               first_name: profile?.first_name ?? "",
               last_name: profile?.last_name ?? "",
-              dob: profile?.dob ?? "",
+              dob: priv?.dob ?? "",
               belt: profile?.belt ?? "white",
               stripes: profile?.stripes ?? 0,
               avatar_url: profile?.avatar_url ?? null,
