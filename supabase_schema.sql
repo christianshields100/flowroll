@@ -2216,10 +2216,17 @@ begin
      where user_id = p_user and type = 'promotion' and created_at >= latest.created_at
        and data->>'belt' = latest.belt and (data->>'stripes')::int = latest.stripes;
   else
-    -- the latest entry recorded the wrong rank: rewrite it in place
+    -- the latest entry recorded the wrong rank: rewrite it in place, and
+    -- keep its notification saying the corrected rank
     update public.belt_history set belt = p_belt, stripes = p_stripes where id = latest.id;
+    if latest.kind = 'promotion' then
+      update public.notifications
+         set data = data || jsonb_build_object('belt', p_belt, 'stripes', p_stripes)
+       where user_id = p_user and type = 'promotion' and created_at >= latest.created_at
+         and data->>'belt' = latest.belt and (data->>'stripes')::int = latest.stripes;
+    end if;
   end if;
-end $$;
+end $;
 revoke execute on function public.apply_belt_change(uuid, text, integer, text, date) from public, anon, authenticated;
 
 -- Settings → belt picker calls this.
