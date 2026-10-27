@@ -1416,7 +1416,8 @@ begin
   update public.profiles set belt = prev.belt, stripes = prev.stripes where id = uid;
   delete from public.belt_history where id = latest.id;
   delete from public.notifications
-   where user_id = uid and type = 'promotion' and created_at >= latest.created_at;
+   where user_id = uid and type = 'promotion' and created_at >= latest.created_at
+     and data->>'belt' = latest.belt and (data->>'stripes')::int = latest.stripes;
 end;
 $$;
 
@@ -2212,7 +2213,8 @@ begin
     -- "that promotion never happened": remove it and its notification
     delete from public.belt_history where id = latest.id;
     delete from public.notifications
-     where user_id = p_user and type = 'promotion' and created_at >= latest.created_at;
+     where user_id = p_user and type = 'promotion' and created_at >= latest.created_at
+       and data->>'belt' = latest.belt and (data->>'stripes')::int = latest.stripes;
   else
     -- the latest entry recorded the wrong rank: rewrite it in place
     update public.belt_history set belt = p_belt, stripes = p_stripes where id = latest.id;
@@ -2298,7 +2300,8 @@ begin
        and public.belt_rank(latest.belt, latest.stripes) = old_rank then
       delete from public.belt_history where id = latest.id;
       delete from public.notifications
-       where user_id = new.id and type = 'promotion' and created_at >= latest.created_at;
+       where user_id = new.id and type = 'promotion' and created_at >= latest.created_at
+         and data->>'belt' = latest.belt and (data->>'stripes')::int = latest.stripes;
     end if;
   end if;
   return new;
